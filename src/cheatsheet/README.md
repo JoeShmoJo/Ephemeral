@@ -1,0 +1,31 @@
+# Git cheat sheet generator
+
+Builds `out/Git-GitHub-PowerShell-Cheat-Sheet.docx` — a Word document with
+Navigation-Pane headings, a table of contents, syntax-coloured command blocks,
+and copy-and-paste PowerShell snippets.
+
+## Rebuild
+
+```powershell
+cd src\cheatsheet
+npm install docx
+node make.js ..\..\out\Git-GitHub-PowerShell-Cheat-Sheet.docx
+```
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `make.js` | All document content, in reading order. Edit this to change wording. |
+| `lib.js` | Layout helpers: syntax colouring, code boxes, callouts, tables, headings. |
+
+## Editing notes
+
+- `code([...])` is a grey box of individual commands; `paste([...])` is a blue
+  box meaning "copy the whole thing".
+- `callout('tip' | 'note' | 'warning' | 'danger', text)` draws a coloured bar.
+- Paragraph text supports `` `code` ``, `**bold**` and `*italic*`.
+- Command colouring is automatic — `tokenize()` in `lib.js` decides what is a
+  command, a sub-command, a flag, a string, or an ALL-CAPS placeholder.
+- Two tables that touch get merged by Word, so `make.js` inserts a spacer
+  paragraph between any adjacent pair before building. Keep that step.
