@@ -1,0 +1,723 @@
+<title>Git Console Card</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;600;700&display=swap">
+<style>
+:root{
+  --ground:#FAFBFC; --panel:#FFFFFF; --sunk:#F1F4F8; --line:#DDE3EA; --line-soft:#EAEEF3;
+  --ink:#101820; --ink-2:#3F4C59; --ink-3:#6B7A88;
+  --ps:#0B3E7A;            /* PowerShell console blue */
+  --ps-deep:#012456;
+  --git:#C8420C;           /* Git orange, deepened for contrast */
+  --ok:#15683C; --warn:#8A5200; --bad:#A4141C;
+  /* token colours */
+  --t-cmd:#C8410C; --t-sub:#6B2FA8; --t-flag:#0B5FA5; --t-str:#0A3069;
+  --t-ph:#A4141C; --t-cmt:#6B7A88; --t-ref:#15683C; --t-plain:#22303C;
+  --code-bg:#F5F8FB; --code-line:#DCE4EC; --paste-bg:#EFF6FF; --paste-line:#BFD8F2;
+  --shadow:0 1px 2px rgba(16,24,32,.05),0 8px 24px -16px rgba(16,24,32,.25);
+  --rail:250px;
+}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme="light"]){
+  --ground:#0D1319; --panel:#131B23; --sunk:#0A1017; --line:#26323D; --line-soft:#1D2731;
+  --ink:#E6EDF3; --ink-2:#AFBDC9; --ink-3:#7F8F9D;
+  --ps:#7FB2F0; --ps-deep:#0A2A55; --git:#FF8A5B;
+  --ok:#57C08A; --warn:#E0A64A; --bad:#FF7B72;
+  --t-cmd:#FF8A5B; --t-sub:#C8A0FF; --t-flag:#79C0FF; --t-str:#A5D6FF;
+  --t-ph:#FF7B72; --t-cmt:#7F8F9D; --t-ref:#7EE2A8; --t-plain:#D3DEE8;
+  --code-bg:#0B121A; --code-line:#232F3B; --paste-bg:#0C1725; --paste-line:#25405F;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+}}
+:root[data-theme="dark"]{
+  --ground:#0D1319; --panel:#131B23; --sunk:#0A1017; --line:#26323D; --line-soft:#1D2731;
+  --ink:#E6EDF3; --ink-2:#AFBDC9; --ink-3:#7F8F9D;
+  --ps:#7FB2F0; --ps-deep:#0A2A55; --git:#FF8A5B;
+  --ok:#57C08A; --warn:#E0A64A; --bad:#FF7B72;
+  --t-cmd:#FF8A5B; --t-sub:#C8A0FF; --t-flag:#79C0FF; --t-str:#A5D6FF;
+  --t-ph:#FF7B72; --t-cmt:#7F8F9D; --t-ref:#7EE2A8; --t-plain:#D3DEE8;
+  --code-bg:#0B121A; --code-line:#232F3B; --paste-bg:#0C1725; --paste-line:#25405F;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans",system-ui,Segoe UI,sans-serif;
+  font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:var(--ps)}
+
+/* ---------- masthead ---------- */
+.mast{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40}
+.mast-in{max-width:1180px;margin:0 auto;padding:14px 26px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand b{font-size:19px;font-weight:600;letter-spacing:-.015em}
+.brand span{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-3);letter-spacing:.04em}
+.find{flex:1;min-width:210px;display:flex;align-items:center;gap:8px;background:var(--sunk);
+  border:1px solid var(--line);border-radius:7px;padding:0 10px}
+.find input{flex:1;background:none;border:0;outline:none;color:var(--ink);font:inherit;font-size:14px;padding:8px 0}
+.find kbd{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);border:1px solid var(--line);
+  border-radius:4px;padding:1px 5px;background:var(--panel)}
+.find svg{width:15px;height:15px;fill:none;stroke:var(--ink-3);stroke-width:2}
+
+/* ---------- shell ---------- */
+.shell{max-width:1180px;margin:0 auto;padding:26px;display:grid;grid-template-columns:var(--rail) minmax(0,1fr);gap:38px;align-items:start}
+nav.rail{position:sticky;top:82px;max-height:calc(100vh - 104px);overflow-y:auto;padding-right:6px}
+nav.rail ol{list-style:none;margin:0;padding:0}
+nav.rail a{display:block;padding:5px 10px;border-left:2px solid transparent;color:var(--ink-2);
+  text-decoration:none;font-size:13.5px;border-radius:0 5px 5px 0}
+nav.rail a:hover{background:var(--sunk);color:var(--ink)}
+nav.rail a.on{border-left-color:var(--git);color:var(--ink);font-weight:600;background:var(--sunk)}
+nav.rail .grp{font-family:"IBM Plex Mono",monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;
+  color:var(--ink-3);padding:16px 10px 5px}
+
+main{min-width:0;max-width:78ch}
+section{scroll-margin-top:92px}
+section+section{margin-top:46px;padding-top:34px;border-top:1px solid var(--line-soft)}
+h2.sec{font-size:25px;font-weight:600;letter-spacing:-.02em;display:flex;align-items:baseline;gap:11px}
+h2.sec .n{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--git);font-weight:500}
+h3{font-size:16.5px;font-weight:600;margin:28px 0 8px}
+p{margin:9px 0;color:var(--ink-2)}
+p strong{color:var(--ink);font-weight:600}
+.lede{font-size:16.5px;color:var(--ink-2);margin-bottom:4px}
+ul{margin:9px 0;padding-left:20px;color:var(--ink-2)}
+li{margin:4px 0}
+code.i{font-family:"IBM Plex Mono",monospace;font-size:.87em;background:var(--sunk);
+  border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px;color:var(--ink)}
+
+/* ---------- snippets ---------- */
+.snip{margin:14px 0;border:1px solid var(--code-line);border-radius:9px;background:var(--code-bg);overflow:hidden}
+.snip.paste{background:var(--paste-bg);border-color:var(--paste-line)}
+.snip-top{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 12px;border-bottom:1px solid var(--code-line);
+  background:color-mix(in srgb,var(--code-bg) 60%,var(--ground))}
+.snip.paste .snip-top{border-bottom-color:var(--paste-line)}
+.snip-top .tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.snip.paste .snip-top .tag{color:var(--ps)}
+.copy{font:inherit;font-size:12px;font-weight:600;color:var(--ink-2);background:var(--panel);
+  border:1px solid var(--line);border-radius:6px;padding:3px 10px;cursor:pointer;white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s}
+.copy:hover{border-color:var(--git);color:var(--git)}
+.copy:focus-visible{outline:2px solid var(--git);outline-offset:2px}
+.copy.done{background:var(--ok);border-color:var(--ok);color:#fff}
+pre{margin:0;padding:11px 14px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:13px;
+  line-height:1.75;color:var(--t-plain);tab-size:2}
+.t-cmd{color:var(--t-cmd);font-weight:600}.t-sub{color:var(--t-sub);font-weight:600}
+.t-flag{color:var(--t-flag)}.t-str{color:var(--t-str)}.t-ph{color:var(--t-ph);font-weight:600}
+.t-cmt{color:var(--t-cmt);font-style:italic}.t-ref{color:var(--t-ref)}.t-conflict{color:var(--bad);font-weight:600}
+
+/* ---------- callouts ---------- */
+.note{margin:14px 0;padding:11px 14px;border-left:3px solid var(--ps);background:var(--sunk);border-radius:0 7px 7px 0;font-size:14.5px;color:var(--ink-2)}
+.note.tip{border-left-color:var(--ok)}
+.note.warn{border-left-color:var(--warn)}
+.note.bad{border-left-color:var(--bad)}
+.note b{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ps);margin-right:8px}
+.note.tip b{color:var(--ok)}.note.warn b{color:var(--warn)}.note.bad b{color:var(--bad)}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:9px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-weight:600;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+  padding:9px 13px;background:var(--sunk);border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 13px;border-bottom:1px solid var(--line-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.m{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.m .t-ph{white-space:nowrap}
+
+/* ---------- misc ---------- */
+.swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:baseline}
+.empty{display:none;padding:26px;text-align:center;color:var(--ink-3);font-size:14.5px}
+.foot{max-width:1180px;margin:0 auto;padding:30px 26px 50px;color:var(--ink-3);font-size:13px;border-top:1px solid var(--line-soft)}
+mark{background:color-mix(in srgb,var(--git) 26%,transparent);color:inherit;border-radius:2px}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr;gap:0;padding:20px}
+  nav.rail{position:static;max-height:none;margin-bottom:26px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  nav.rail ol{display:flex;flex-wrap:wrap;gap:4px}
+  nav.rail .grp{width:100%;padding:10px 0 2px}
+  nav.rail a{border-left:0;border-bottom:2px solid transparent;border-radius:5px}
+  nav.rail a.on{border-left:0;border-bottom-color:var(--git)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="brand"><b>Git Console Card</b><span>PowerShell&nbsp;/&nbsp;Windows</span></div>
+    <label class="find">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Search commands, errors, tasks…" autocomplete="off" aria-label="Search the cheat sheet">
+      <kbd>/</kbd>
+    </label>
+  </div>
+</header>
+
+<div class="shell">
+<nav class="rail" aria-label="Sections">
+  <ol id="toc"></ol>
+</nav>
+
+<main>
+<p class="empty" id="empty">Nothing matches that. Try <code class="i">push</code>, <code class="i">conflict</code>, or <code class="i">undo</code>.</p>
+
+<section id="start">
+  <h2 class="sec"><span class="n">01</span>Everyday one-liners</h2>
+  <p class="lede">The blocks you will use nearly every time. Hit <b>Copy</b>, paste into PowerShell, press Enter.</p>
+
+  <h3>Save my work and put it on GitHub</h3>
+  <p>Change the text in quotes to describe what you actually did.</p>
+  <div class="snip paste"><pre>git add . &amp;&amp; git commit -m "describe what I changed" &amp;&amp; git push</pre></div>
+  <div class="note"><b>note</b>The <code class="i">&amp;&amp;</code> chain needs <strong>PowerShell 7+</strong>. Check with <code class="i">$PSVersionTable.PSVersion</code>. On Windows PowerShell 5.1 replace each <code class="i">&amp;&amp;</code> with <code class="i">;</code> — but <code class="i">;</code> runs the next command even if the one before it failed.</div>
+
+  <h3>Get the latest version from GitHub</h3>
+  <div class="snip paste"><pre>git pull</pre></div>
+
+  <h3>Where am I and what changed?</h3>
+  <div class="snip paste"><pre>git status &amp;&amp; git log --oneline -10</pre></div>
+
+  <h3>Brand-new repository, start to finish</h3>
+  <p>Run this inside your project folder, after making an <strong>empty</strong> repository on GitHub. Replace the URL.</p>
+  <div class="snip paste"><pre>git init
+git add .
+git commit -m "initial commit"
+git branch -M main
+git remote add origin https://github.com/USERNAME/REPOSITORY.git
+git push -u origin main</pre></div>
+
+  <h3>Copy an existing repository onto this PC</h3>
+  <div class="snip paste"><pre>cd C:\Projects\A_REPOSITORIES
+git clone https://github.com/USERNAME/REPOSITORY.git</pre></div>
+
+  <h3>Bin my local changes and match GitHub</h3>
+  <div class="note bad"><b>danger</b>This permanently discards uncommitted work. Run <code class="i">git status</code> first and read the list.</div>
+  <div class="snip paste"><pre>git restore . &amp;&amp; git pull</pre></div>
+</section>
+
+<section id="setup">
+  <h2 class="sec"><span class="n">02</span>One-time setup</h2>
+  <p class="lede">Once per computer, then never again.</p>
+
+  <h3>Is Git installed?</h3>
+  <div class="snip"><pre>git --version</pre></div>
+  <p>No version number? Install it, then <strong>close and reopen PowerShell</strong> so the new PATH is picked up.</p>
+  <div class="snip"><pre>winget install --id Git.Git -e</pre></div>
+
+  <h3>Tell Git who you are</h3>
+  <p>Every commit is stamped with this. Use the email on your GitHub account.</p>
+  <div class="snip paste"><pre>git config --global user.name "Your Name"
+git config --global user.email "you@example.com"</pre></div>
+
+  <h3>Defaults worth setting</h3>
+  <div class="snip paste"><pre>git config --global init.defaultBranch main
+git config --global pull.rebase false
+git config --global core.autocrlf true
+git config --global credential.helper manager</pre></div>
+  <div class="tw"><table>
+    <tr><th>Setting</th><th>Why</th></tr>
+    <tr><td class="m">init.defaultBranch main</td><td>New repositories start on <code class="i">main</code>, matching GitHub — no more <code class="i">git branch -M main</code>.</td></tr>
+    <tr><td class="m">pull.rebase false</td><td><code class="i">git pull</code> merges rather than rebases. Simpler and safer when you work alone.</td></tr>
+    <tr><td class="m">core.autocrlf true</td><td>Handles Windows vs. Unix line endings, so files stop showing up as entirely rewritten.</td></tr>
+    <tr><td class="m">credential.helper manager</td><td>Windows remembers your GitHub sign-in instead of asking on every push.</td></tr>
+  </table></div>
+
+  <h3>Signing in</h3>
+  <p>Your first <code class="i">git push</code> opens a browser window; sign in there and Windows stores the credential. <strong>Your GitHub password will not work at the prompt</strong> — GitHub stopped accepting it. If a terminal prompt ever asks for a password, paste a Personal Access Token instead (GitHub ▸ Settings ▸ Developer settings ▸ Tokens).</p>
+  <div class="snip"><pre>git config --global --list</pre></div>
+</section>
+
+<section id="new">
+  <h2 class="sec"><span class="n">03</span>Create a new repository</h2>
+  <p class="lede">Local project folder in hand, empty repository waiting on GitHub.</p>
+  <div class="note warn"><b>warning</b>Do not tick <em>Add a README</em>, <em>.gitignore</em>, or <em>license</em> when creating the GitHub repository — each makes a commit your PC does not have, and your first push gets rejected. Already ticked one? Don't start over: run <code class="i">git pull origin main --allow-unrelated-histories</code> before the first push.</div>
+
+  <h3>1 — Open PowerShell in the project folder</h3>
+  <div class="snip"><pre>cd C:\Projects\A_REPOSITORIES\Ephemeral</pre></div>
+  <div class="note tip"><b>tip</b>Faster: open the folder in File Explorer, Shift+right-click the empty space ▸ <strong>Open PowerShell window here</strong>. Or type <code class="i">cd </code> and drag the folder onto the window.</div>
+
+  <h3>2 — Initialise the repository</h3>
+  <div class="snip"><pre>git init</pre></div>
+  <p>This creates a hidden <code class="i">.git</code> folder. That folder <em>is</em> your repository — the history lives there, not on GitHub.</p>
+
+  <h3>3 — Stage everything</h3>
+  <div class="snip"><pre>git add .</pre></div>
+  <p>The <code class="i">.</code> means "this folder and everything under it". Staging is you saying <em>these are the changes I want in the next snapshot</em>.</p>
+
+  <h3>4 — First commit</h3>
+  <div class="snip"><pre>git commit -m "initial commit"</pre></div>
+
+  <h3>5 — Name the branch main</h3>
+  <div class="snip"><pre>git branch -M main</pre></div>
+
+  <h3>6 — Point it at GitHub</h3>
+  <p><code class="i">origin</code> is just a nickname for the URL.</p>
+  <div class="snip"><pre>git remote add origin https://github.com/JoeShmoJo/Ephemeral.git</pre></div>
+
+  <h3>7 — Push</h3>
+  <div class="snip"><pre>git push -u origin main</pre></div>
+  <p><code class="i">-u</code> links your local <code class="i">main</code> to GitHub's, so plain <code class="i">git push</code> and <code class="i">git pull</code> know where to go from now on.</p>
+  <p><strong>Memory aid:</strong> init → add → commit → branch → remote → push</p>
+
+  <h3>Wrong URL?</h3>
+  <div class="snip"><pre>git remote -v
+git remote set-url origin https://github.com/USERNAME/REPOSITORY.git</pre></div>
+</section>
+
+<section id="daily">
+  <h2 class="sec"><span class="n">04</span>The everyday workflow</h2>
+  <p class="lede">Once the repository exists, this is the whole job: <strong>add → commit → push</strong>.</p>
+  <div class="snip"><pre>git status                              # what changed?
+git add .                               # stage all of it
+git commit -m "describe what I changed" # snapshot it locally
+git push                                # send it to GitHub</pre></div>
+
+  <h3>Staging only some files</h3>
+  <div class="snip"><pre>git add notes.md src\main.py
+git commit -m "update notes and main script"</pre></div>
+
+  <h3>A commit message worth reading</h3>
+  <p>Finish the sentence <em>"If applied, this commit will…"</em>. Present tense, under about 60 characters, says what and why.</p>
+  <div class="tw"><table>
+    <tr><th>Good</th><th>Not so good</th></tr>
+    <tr><td>add retry logic to the download step</td><td>fixes</td></tr>
+    <tr><td>fix crash when the input file is empty</td><td>update</td></tr>
+    <tr><td>rewrite README install instructions</td><td>stuff</td></tr>
+  </table></div>
+  <p>A commit is a local save point and costs nothing — make them small and frequent. A push is a backup. There is no penalty for pushing ten times a day.</p>
+</section>
+
+<section id="sync">
+  <h2 class="sec"><span class="n">05</span>Pulling, and conflicts</h2>
+  <p class="lede">Five situations cover essentially every sync problem you will hit working solo across two machines.</p>
+
+  <h3>1 — Normal update</h3>
+  <div class="snip paste"><pre>git add . &amp;&amp; git commit -m "describe what I changed" &amp;&amp; git push</pre></div>
+
+  <h3>2 — Push rejected because GitHub has changes</h3>
+  <p>GitHub has commits your PC does not — you edited on the website, or pushed from another machine. Git says <em>"Updates were rejected because the remote contains work that you do not have locally."</em> Bring them down first:</p>
+  <div class="snip paste"><pre>git pull &amp;&amp; git push</pre></div>
+  <div class="note"><b>note</b>This is not an error you caused. It is Git protecting the commits already on GitHub.</div>
+
+  <h3>3 — The pull produced a merge conflict</h3>
+  <p>Git could not decide which version of a line to keep, so it is asking you. Nothing is broken and nothing is lost. First, see which files:</p>
+  <div class="snip"><pre>git status</pre></div>
+  <p>Open each one. You will find markers like this:</p>
+  <div class="snip" data-kind="file"><pre>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+your local version of the line
+=======
+the version that came from GitHub
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; origin/main</pre></div>
+  <p>Edit the file so it reads the way you want — keep one side, keep both, or rewrite it. Then <strong>delete all three marker lines</strong> and save. Finally:</p>
+  <div class="snip paste"><pre>git add . &amp;&amp; git commit -m "resolve merge conflict" &amp;&amp; git push</pre></div>
+  <div class="note tip"><b>tip</b>Catch leftover markers before committing with <code class="i">git diff --check</code>, or search the folder for <code class="i">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>. Want out entirely? <code class="i">git merge --abort</code> puts you back exactly where you were before the pull.</div>
+  <p><strong>Memory aid:</strong> pull → resolve → add → commit → push</p>
+
+  <h3>4 — Discard my changes, take GitHub's version</h3>
+  <div class="note bad"><b>danger</b><code class="i">git restore .</code> throws away uncommitted edits to tracked files. They are not recoverable.</div>
+  <div class="snip paste"><pre>git status
+git restore . &amp;&amp; git pull</pre></div>
+
+  <h3>5 — Also delete untracked files</h3>
+  <p><code class="i">git restore .</code> never touches files Git has not seen. To clear those too — <strong>preview first</strong>, <code class="i">-n</code> means "show me, don't delete":</p>
+  <div class="snip"><pre>git clean -fdn</pre></div>
+  <p>Read that list carefully. If it is right:</p>
+  <div class="snip paste"><pre>git clean -fd &amp;&amp; git pull</pre></div>
+  <div class="note bad"><b>danger</b><code class="i">git clean -fd</code> permanently deletes untracked files and folders. No undo, no Recycle Bin.</div>
+
+  <h3>Not ready to commit, but need to pull</h3>
+  <div class="snip paste"><pre>git stash
+git pull
+git stash pop</pre></div>
+</section>
+
+<section id="undo">
+  <h2 class="sec"><span class="n">06</span>Undo: the safety net</h2>
+  <p class="lede">Almost everything is reversible <strong>once it has been committed</strong>. That is the real reason to commit often.</p>
+  <div class="tw"><table>
+    <tr><th>I want to…</th><th>Command</th></tr>
+    <tr><td>Undo edits to one file</td><td class="m">git restore path\to\file</td></tr>
+    <tr><td>Undo all uncommitted edits</td><td class="m">git restore .</td></tr>
+    <tr><td>Unstage a file, keep the edits</td><td class="m">git restore --staged path\to\file</td></tr>
+    <tr><td>Fix the last commit message</td><td class="m">git commit --amend -m "better message"</td></tr>
+    <tr><td>Add a forgotten file to the last commit</td><td class="m">git add forgotten.txt &amp;&amp; git commit --amend --no-edit</td></tr>
+    <tr><td>Undo the last commit, keep the changes</td><td class="m">git reset --soft HEAD~1</td></tr>
+    <tr><td>Undo the last commit and its changes</td><td class="m">git reset --hard HEAD~1</td></tr>
+    <tr><td>Get one file back as GitHub has it</td><td class="m">git checkout origin/main -- path\to\file</td></tr>
+    <tr><td>Reverse an old commit safely</td><td class="m">git revert COMMITHASH</td></tr>
+    <tr><td>See everything I have done recently</td><td class="m">git reflog</td></tr>
+  </table></div>
+  <div class="note warn"><b>warning</b>Never <code class="i">--amend</code> or <code class="i">reset</code> a commit you have <strong>already pushed</strong> — that rewrites history GitHub already has, and your next push is rejected. To undo something already on GitHub, use <code class="i">git revert</code>, which adds a new commit that cancels the old one.</div>
+  <h3>When you have really made a mess</h3>
+  <p><code class="i">git reflog</code> lists every position <code class="i">HEAD</code> has held, including commits you thought you destroyed. Find the line you want, take its short hash, go back:</p>
+  <div class="snip"><pre>git reflog
+git reset --hard a1b2c3d   # the hash from the line you want</pre></div>
+</section>
+
+<section id="branch">
+  <h2 class="sec"><span class="n">07</span>Branches</h2>
+  <p class="lede">A parallel line of work. Try something risky on a branch and <code class="i">main</code> stays untouched. Optional when you work alone — and the cheapest safety net there is.</p>
+  <div class="snip"><pre>git switch -c experiment      # create one and move to it
+git push -u origin experiment # first push needs the -u
+git branch                    # list branches, * marks the current one
+git switch main               # move back</pre></div>
+  <h3>Merge the work back into main</h3>
+  <div class="snip paste"><pre>git switch main
+git pull
+git merge experiment
+git push</pre></div>
+  <h3>Delete a branch you have finished with</h3>
+  <div class="snip"><pre>git branch -d experiment              # local
+git push origin --delete experiment   # on GitHub</pre></div>
+</section>
+
+<section id="ignore">
+  <h2 class="sec"><span class="n">08</span>.gitignore</h2>
+  <p class="lede">A list of things Git should never track: secrets, build output, huge data files, editor cruft. It sits in the top folder and <strong>should be committed</strong>.</p>
+  <h3>Write a starter file</h3>
+  <div class="snip paste"><pre>@"
+# Windows
+Thumbs.db
+desktop.ini
+
+# Editors
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+
+# Secrets - never commit these
+.env
+*.key
+
+# Big / generated stuff
+out/
+*.log
+"@ | Set-Content -Encoding utf8 .gitignore</pre></div>
+  <div class="note"><b>note</b>That <code class="i">@" … "@</code> is a PowerShell here-string. The closing <code class="i">"@</code> must sit at the very start of its own line or PowerShell complains.</div>
+
+  <h3>I already committed something that should be ignored</h3>
+  <p>Adding it to <code class="i">.gitignore</code> is not enough — Git keeps tracking files it already knows. Untrack it but keep the file on disk:</p>
+  <div class="snip paste"><pre>git rm --cached secrets.env
+git commit -m "stop tracking secrets.env"
+git push</pre></div>
+  <div class="note warn"><b>warning</b>It is gone from future commits but still in the history. If the repository is public, treat any leaked key or password as compromised and rotate it.</div>
+  <div class="snip"><pre>git check-ignore -v path\to\file   # why is this ignored?</pre></div>
+</section>
+
+<section id="pwsh">
+  <h2 class="sec"><span class="n">09</span>PowerShell gotchas</h2>
+
+  <h3>Paths with spaces need quotes</h3>
+  <div class="snip"><pre>cd "C:\Users\Me\My Projects\Ephemeral"</pre></div>
+
+  <h3>Chaining commands</h3>
+  <div class="tw"><table>
+    <tr><th>Operator</th><th>Behaviour</th></tr>
+    <tr><td class="m">&amp;&amp;</td><td>Runs the next command <strong>only if</strong> the previous one succeeded. PowerShell 7+ only.</td></tr>
+    <tr><td class="m">;</td><td>Runs the next command <strong>regardless</strong> of failure. Works everywhere.</td></tr>
+  </table></div>
+  <div class="snip"><pre>$PSVersionTable.PSVersion                        # which PowerShell is this?
+winget install --id Microsoft.PowerShell -e      # get version 7</pre></div>
+
+  <h3>Quoting commit messages</h3>
+  <p>Single quotes are safest — double quotes let <code class="i">$</code> expand into a variable.</p>
+  <div class="snip"><pre>git commit -m 'fix the $HOME lookup'   # literal text, safe
+git commit -m "fix the $HOME lookup"   # PowerShell substitutes $HOME first</pre></div>
+
+  <h3>OneDrive and cloud folders</h3>
+  <div class="note bad"><b>danger</b>A repository inside OneDrive, Dropbox, or Google Drive causes real corruption — two sync engines fighting over the same <code class="i">.git</code> folder. Keep repositories somewhere local like <code class="i">C:\Projects</code> and let GitHub be the backup.</div>
+
+  <h3>Stuck in an editor or a pager</h3>
+  <p>Ran <code class="i">git commit</code> with no <code class="i">-m</code> and landed in Vim? Press <kbd>Esc</kbd>, type <code class="i">:wq</code>, press <kbd>Enter</kbd>. Screen full of log output with a <code class="i">:</code> prompt? Press <kbd>q</kbd>.</p>
+  <div class="snip"><pre>git config --global core.editor "code --wait"
+git --no-pager log --oneline -20</pre></div>
+</section>
+
+<section id="danger">
+  <h2 class="sec"><span class="n">10</span>The danger zone</h2>
+  <p class="lede">Four commands can actually destroy work. Everything else in Git is recoverable.</p>
+  <div class="tw"><table>
+    <tr><th>Command</th><th>What it can cost you</th></tr>
+    <tr><td class="m">git push --force</td><td>Overwrites commits on GitHub. Every other copy — including your other PC — breaks. Never reach for it to fix a rejected push; <code class="i">git pull</code> is the answer there.</td></tr>
+    <tr><td class="m">git reset --hard</td><td>Deletes uncommitted work with no prompt. <code class="i">git reflog</code> rescues <em>committed</em> work only.</td></tr>
+    <tr><td class="m">git clean -fd</td><td>Deletes untracked files and folders. No Recycle Bin. Preview with <code class="i">git clean -fdn</code> first.</td></tr>
+    <tr><td class="m">git restore .</td><td>Discards every uncommitted edit to tracked files.</td></tr>
+  </table></div>
+  <div class="note bad"><b>danger</b>Before any of those, run <code class="i">git status</code> and read it. If you are unsure, commit first — an unwanted commit costs nothing and makes the change undoable.</div>
+</section>
+
+<section id="errors">
+  <h2 class="sec"><span class="n">11</span>Error messages, decoded</h2>
+  <div class="tw"><table>
+    <tr><th>Git says</th><th>You do</th></tr>
+    <tr><td>Updates were rejected because the remote contains work that you do not have locally</td><td>GitHub is ahead of you. <code class="i">git pull</code>, resolve anything it asks about, then <code class="i">git push</code>.</td></tr>
+    <tr><td>fatal: not a git repository</td><td>Wrong folder, or you never ran <code class="i">git init</code>. <code class="i">cd</code> to the project folder.</td></tr>
+    <tr><td>fatal: remote origin already exists</td><td>Already set. Repoint it: <code class="i">git remote set-url origin URL</code>.</td></tr>
+    <tr><td>src refspec main does not match any</td><td>Nothing committed yet. <code class="i">git add .</code> then <code class="i">git commit -m "initial commit"</code>.</td></tr>
+    <tr><td>Please tell me who you are</td><td>Set <code class="i">user.name</code> and <code class="i">user.email</code> — see One-time setup.</td></tr>
+    <tr><td>Support for password authentication was removed</td><td>Use the browser sign-in window, or a Personal Access Token instead of your password.</td></tr>
+    <tr><td>Your local changes would be overwritten by merge</td><td>Commit them, or <code class="i">git stash</code> → <code class="i">git pull</code> → <code class="i">git stash pop</code>.</td></tr>
+    <tr><td>nothing to commit, working tree clean</td><td>Not an error. Nothing has changed since your last commit.</td></tr>
+    <tr><td>detached HEAD</td><td>You are looking at an old commit, not a branch. <code class="i">git switch main</code> puts you back.</td></tr>
+    <tr><td>error: pathspec … did not match any file</td><td>Typo in a filename or branch name. <code class="i">git status</code> and <code class="i">git branch</code> show the real ones.</td></tr>
+  </table></div>
+</section>
+
+<section id="index">
+  <h2 class="sec"><span class="n">12</span>Command index</h2>
+  <div class="tw"><table>
+    <tr><th>Command</th><th>Does what</th></tr>
+    <tr><td class="m">git status</td><td>What changed, what branch, what to do next</td></tr>
+    <tr><td class="m">git add .</td><td>Stage every change in this folder and below</td></tr>
+    <tr><td class="m">git commit -m "msg"</td><td>Snapshot the staged changes locally</td></tr>
+    <tr><td class="m">git push</td><td>Send commits to GitHub</td></tr>
+    <tr><td class="m">git pull</td><td>Bring GitHub commits down and merge them</td></tr>
+    <tr><td class="m">git clone URL</td><td>Copy a GitHub repository onto this PC</td></tr>
+    <tr><td class="m">git init</td><td>Turn this folder into a repository</td></tr>
+    <tr><td class="m">git remote -v</td><td>Which GitHub repository is this linked to?</td></tr>
+    <tr><td class="m">git log --oneline -10</td><td>Last ten commits, one line each</td></tr>
+    <tr><td class="m">git log --oneline --graph --all</td><td>Visual history including branches</td></tr>
+    <tr><td class="m">git diff</td><td>What you changed but have not staged</td></tr>
+    <tr><td class="m">git diff --staged</td><td>What you staged but have not committed</td></tr>
+    <tr><td class="m">git show COMMITHASH</td><td>Everything one commit changed</td></tr>
+    <tr><td class="m">git branch</td><td>List branches</td></tr>
+    <tr><td class="m">git switch -c NAME</td><td>Create a branch and move to it</td></tr>
+    <tr><td class="m">git merge NAME</td><td>Merge a branch into the current one</td></tr>
+    <tr><td class="m">git stash</td><td>Park uncommitted changes</td></tr>
+    <tr><td class="m">git stash pop</td><td>Bring parked changes back</td></tr>
+    <tr><td class="m">git restore FILE</td><td>Undo uncommitted edits to a file</td></tr>
+    <tr><td class="m">git revert COMMITHASH</td><td>New commit that undoes an old one</td></tr>
+    <tr><td class="m">git reflog</td><td>Every recent position of HEAD — the rescue tool</td></tr>
+    <tr><td class="m">git rm --cached FILE</td><td>Stop tracking a file, keep it on disk</td></tr>
+    <tr><td class="m">git config --global --list</td><td>Show your global settings</td></tr>
+  </table></div>
+</section>
+
+<section id="key">
+  <h2 class="sec"><span class="n">13</span>Colour key</h2>
+  <div class="tw"><table>
+    <tr><th>Colour</th><th>Means</th><th>Example</th></tr>
+    <tr><td><span class="swatch" style="background:var(--t-cmd)"></span>Orange-red</td><td>The program you are running</td><td class="m">git</td></tr>
+    <tr><td><span class="swatch" style="background:var(--t-sub)"></span>Purple</td><td>The sub-command — the verb</td><td class="m">git status</td></tr>
+    <tr><td><span class="swatch" style="background:var(--t-flag)"></span>Blue</td><td>A switch or option</td><td class="m">git log --oneline</td></tr>
+    <tr><td><span class="swatch" style="background:var(--t-str)"></span>Deep blue</td><td>Text, paths, URLs</td><td class="m">git commit -m "my message"</td></tr>
+    <tr><td><span class="swatch" style="background:var(--t-ph)"></span>Red</td><td>Replace this before running</td><td class="m">git clone https://github.com/USERNAME/REPOSITORY.git</td></tr>
+    <tr><td><span class="swatch" style="background:var(--t-ref)"></span>Green</td><td>Branch and remote names</td><td class="m">git push -u origin main</td></tr>
+  </table></div>
+</section>
+</main>
+</div>
+
+<footer class="foot">Blue blocks are complete — copy the whole thing. Grey blocks are single commands, explained one at a time. When you are lost, the answer is almost always <code class="i">git status</code>.</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- section navigation, built from the document ---------- */
+  var secs = Array.prototype.slice.call(document.querySelectorAll("main section"));
+  var toc  = document.getElementById("toc");
+  var links = {};
+  secs.forEach(function(s){
+    var h = s.querySelector("h2.sec");
+    var num = h.querySelector(".n").textContent;
+    var name = h.textContent.replace(num, "").trim();
+    var li = document.createElement("li");
+    var a = document.createElement("a");
+    a.href = "#" + s.id; a.textContent = name; a.dataset.for = s.id;
+    li.appendChild(a); toc.appendChild(li); links[s.id] = a;
+  });
+
+  if ("IntersectionObserver" in window) {
+    var seen = {};
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ seen[e.target.id] = e.isIntersecting; });
+      var current = null;
+      secs.forEach(function(s){ if (!current && seen[s.id]) current = s.id; });
+      Object.keys(links).forEach(function(id){ links[id].classList.toggle("on", id === current); });
+    }, { rootMargin: "-88px 0px -60% 0px" });
+    secs.forEach(function(s){ io.observe(s); });
+  }
+
+  /* ---------- syntax colouring: same rules as the Word document ---------- */
+  var CMDS = {git:1, cd:1, winget:1, "Set-Content":1, "Get-Content":1, code:1, gh:1, ls:1, echo:1, notepad:1};
+  var REFS = {HEAD:1, "origin/main":1, main:1, master:1, origin:1};
+
+  function span(cls, text){
+    var el = document.createElement("span");
+    if (cls) el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function colourLine(line, frag){
+    var trimmed = line.trim();
+    if (trimmed === "")            { frag.appendChild(document.createTextNode(line)); return; }
+    if (trimmed.charAt(0) === "#") { frag.appendChild(span("t-cmt", line)); return; }
+    if (/^(<{7}|={7}|>{7})/.test(trimmed) || trimmed === "=======") { frag.appendChild(span("t-conflict", line)); return; }
+    if (trimmed.charAt(0) === "@" || trimmed.charAt(0) === '"' || trimmed.charAt(0) === "*" || trimmed.charAt(0) === ".") {
+      /* here-string body and .gitignore contents: leave plain */
+      if (!/^\S+\s+\S/.test(trimmed) || trimmed.indexOf("|") > -1) { /* fall through for the piped closing line */ }
+    }
+
+    var re = /("[^"]*"|'[^']*'|\s+|\S+)/g, m, expectCmd = true, afterGit = false;
+    while ((m = re.exec(line)) !== null) {
+      var tok = m[0];
+      if (/^\s+$/.test(tok)) { frag.appendChild(document.createTextNode(tok)); continue; }
+      if (tok.charAt(0) === "#") { frag.appendChild(span("t-cmt", line.slice(m.index))); return; }
+      if (tok === "&&" || tok === ";" || tok === "|" || tok === "||") {
+        frag.appendChild(span("t-cmd", tok)); expectCmd = true; afterGit = false; continue;
+      }
+      if (expectCmd && CMDS[tok]) {
+        frag.appendChild(span("t-cmd", tok));
+        afterGit = (tok === "git" || tok === "gh"); expectCmd = false; continue;
+      }
+      if (afterGit && tok.charAt(0) !== "-") {
+        frag.appendChild(span("t-sub", tok)); afterGit = false; expectCmd = false; continue;
+      }
+      expectCmd = false; afterGit = false;
+      if (tok.charAt(0) === '"' || tok.charAt(0) === "'")      frag.appendChild(span("t-str", tok));
+      else if (tok.charAt(0) === "-")                          frag.appendChild(span("t-flag", tok));
+      else if (REFS[tok] || /^HEAD~\d+$/.test(tok))            frag.appendChild(span("t-ref", tok));
+      else if (/^[A-Z][A-Z0-9_]{2,}$/.test(tok))               frag.appendChild(span("t-ph", tok));
+      else if (/(https?:\/\/|^[A-Za-z]:\\)/.test(tok))         frag.appendChild(urlRuns(tok));
+      else                                                     frag.appendChild(document.createTextNode(tok));
+    }
+  }
+
+  /* inside a URL, highlight only the parts you must replace */
+  function urlRuns(tok){
+    var f = document.createDocumentFragment();
+    tok.split(/(USERNAME|REPOSITORY)/).forEach(function(part){
+      if (part === "USERNAME" || part === "REPOSITORY") f.appendChild(span("t-ph", part));
+      else if (part) f.appendChild(span("t-str", part));
+    });
+    return f;
+  }
+
+  document.querySelectorAll(".snip pre").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.dataset.raw = raw;
+    var frag = document.createDocumentFragment();
+    raw.split("\n").forEach(function(line, i){
+      if (i) frag.appendChild(document.createTextNode("\n"));
+      colourLine(line, frag);
+    });
+    pre.textContent = "";
+    pre.appendChild(frag);
+  });
+
+  /* colour the mono table cells too */
+  document.querySelectorAll("td.m").forEach(function(td){
+    var frag = document.createDocumentFragment();
+    colourLine(td.textContent, frag);
+    td.textContent = "";
+    td.appendChild(frag);
+  });
+
+  /* ---------- copy buttons ---------- */
+  function copyText(text){
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject){
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed"; ta.style.top = "-1000px";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error("copy blocked"));
+    });
+  }
+
+  document.querySelectorAll(".snip").forEach(function(snip){
+    var pre = snip.querySelector("pre");
+    var lines = pre.dataset.raw.split("\n").length;
+    var isPaste = snip.classList.contains("paste");
+
+    var bar = document.createElement("div");
+    bar.className = "snip-top";
+    var tag = document.createElement("span");
+    tag.className = "tag";
+    var isFile = snip.dataset.kind === "file";
+    tag.textContent = isFile ? "what you see inside the conflicted file"
+      : isPaste ? (lines > 1 ? "paste all " + lines + " lines" : "one-liner")
+      : (lines > 1 ? lines + " commands, one at a time" : "one command");
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "Copy";
+    if (isFile) btn.hidden = true;
+    btn.addEventListener("click", function(){
+      copyText(pre.dataset.raw).then(function(){
+        btn.textContent = "Copied"; btn.classList.add("done");
+      }).catch(function(){
+        btn.textContent = "Press Ctrl+C";
+        var r = document.createRange(); r.selectNodeContents(pre);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      });
+      setTimeout(function(){ btn.textContent = "Copy"; btn.classList.remove("done"); }, 1800);
+    });
+    bar.appendChild(tag); bar.appendChild(btn);
+    snip.insertBefore(bar, pre);
+  });
+
+  /* ---------- search ---------- */
+  var q = document.getElementById("q");
+  var empty = document.getElementById("empty");
+
+  document.addEventListener("keydown", function(e){
+    if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); }
+    if (e.key === "Escape" && document.activeElement === q) { q.value = ""; filter(); q.blur(); }
+  });
+
+  /* every block that can be shown or hidden on its own */
+  var units = [];
+  secs.forEach(function(s){
+    var kids = Array.prototype.slice.call(s.children);
+    var group = null;
+    kids.forEach(function(el){
+      if (el.tagName === "H2") return;
+      if (el.tagName === "H3") { group = { els: [el], sec: s }; units.push(group); return; }
+      if (group) group.els.push(el);
+      else units.push({ els: [el], sec: s });
+    });
+    /* table rows are searched individually */
+    s.querySelectorAll("tbody tr, table tr").forEach(function(tr){
+      if (tr.querySelector("th")) return;
+      units.push({ els: [tr], sec: s, row: true });
+    });
+  });
+  units.forEach(function(u){ u.text = u.els.map(function(e){ return e.textContent; }).join(" ").toLowerCase(); });
+
+  function filter(){
+    var term = q.value.trim().toLowerCase();
+    var anyVisible = false;
+    if (!term) {
+      units.forEach(function(u){ u.els.forEach(function(e){ e.style.display = ""; }); });
+      secs.forEach(function(s){ s.style.display = ""; });
+      empty.style.display = "none";
+      return;
+    }
+    var hitsBySec = {};
+    units.forEach(function(u){
+      var hit = u.text.indexOf(term) > -1;
+      u.els.forEach(function(e){ e.style.display = hit ? "" : "none"; });
+      if (hit) { hitsBySec[u.sec.id] = true; anyVisible = true; }
+    });
+    secs.forEach(function(s){
+      var on = !!hitsBySec[s.id];
+      s.style.display = on ? "" : "none";
+      if (on) { /* a matching row must not hide its own table or heading */
+        s.querySelectorAll("h2.sec, .tw, table, tbody").forEach(function(e){ e.style.display = ""; });
+      }
+    });
+    empty.style.display = anyVisible ? "none" : "block";
+  }
+  q.addEventListener("input", filter);
+})();
+</script>
