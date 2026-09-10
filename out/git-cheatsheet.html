@@ -11,7 +11,7 @@
   --ok:#15683C; --warn:#8A5200; --bad:#A4141C;
   /* token colours */
   --t-cmd:#C8410C; --t-sub:#6B2FA8; --t-flag:#0B5FA5; --t-str:#0A3069;
-  --t-ph:#A4141C; --t-cmt:#6B7A88; --t-ref:#15683C; --t-plain:#22303C;
+  --t-ph:#A4141C; --t-cmt:#6B7A88; --t-ref:#15683C; --t-var:#0F6E7A; --t-plain:#22303C;
   --code-bg:#F5F8FB; --code-line:#DCE4EC; --paste-bg:#EFF6FF; --paste-line:#BFD8F2;
   --shadow:0 1px 2px rgba(16,24,32,.05),0 8px 24px -16px rgba(16,24,32,.25);
   --rail:250px;
@@ -23,7 +23,7 @@
   --ps:#7FB2F0; --ps-deep:#0A2A55; --git:#FF8A5B;
   --ok:#57C08A; --warn:#E0A64A; --bad:#FF7B72;
   --t-cmd:#FF8A5B; --t-sub:#C8A0FF; --t-flag:#79C0FF; --t-str:#A5D6FF;
-  --t-ph:#FF7B72; --t-cmt:#7F8F9D; --t-ref:#7EE2A8; --t-plain:#D3DEE8;
+  --t-ph:#FF7B72; --t-cmt:#7F8F9D; --t-ref:#7EE2A8; --t-var:#5FD0DB; --t-plain:#D3DEE8;
   --code-bg:#0B121A; --code-line:#232F3B; --paste-bg:#0C1725; --paste-line:#25405F;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
 }}
@@ -33,7 +33,7 @@
   --ps:#7FB2F0; --ps-deep:#0A2A55; --git:#FF8A5B;
   --ok:#57C08A; --warn:#E0A64A; --bad:#FF7B72;
   --t-cmd:#FF8A5B; --t-sub:#C8A0FF; --t-flag:#79C0FF; --t-str:#A5D6FF;
-  --t-ph:#FF7B72; --t-cmt:#7F8F9D; --t-ref:#7EE2A8; --t-plain:#D3DEE8;
+  --t-ph:#FF7B72; --t-cmt:#7F8F9D; --t-ref:#7EE2A8; --t-var:#5FD0DB; --t-plain:#D3DEE8;
   --code-bg:#0B121A; --code-line:#232F3B; --paste-bg:#0C1725; --paste-line:#25405F;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
 }
@@ -101,7 +101,7 @@ pre{margin:0;padding:11px 14px;overflow-x:auto;font-family:"IBM Plex Mono",monos
   line-height:1.75;color:var(--t-plain);tab-size:2}
 .t-cmd{color:var(--t-cmd);font-weight:600}.t-sub{color:var(--t-sub);font-weight:600}
 .t-flag{color:var(--t-flag)}.t-str{color:var(--t-str)}.t-ph{color:var(--t-ph);font-weight:600}
-.t-cmt{color:var(--t-cmt);font-style:italic}.t-ref{color:var(--t-ref)}.t-conflict{color:var(--bad);font-weight:600}
+.t-cmt{color:var(--t-cmt);font-style:italic}.t-var{color:var(--t-var)}.t-ref{color:var(--t-ref)}.t-conflict{color:var(--bad);font-weight:600}
 
 /* ---------- callouts ---------- */
 .note{margin:14px 0;padding:11px 14px;border-left:3px solid var(--ps);background:var(--sunk);border-radius:0 7px 7px 0;font-size:14.5px;color:var(--ink-2)}
@@ -163,14 +163,17 @@ mark{background:color-mix(in srgb,var(--git) 26%,transparent);color:inherit;bord
 
   <h3>Save my work and put it on GitHub</h3>
   <p>Change the text in quotes to describe what you actually did.</p>
-  <div class="snip paste"><pre>git add . &amp;&amp; git commit -m "describe what I changed" &amp;&amp; git push</pre></div>
-  <div class="note"><b>note</b>The <code class="i">&amp;&amp;</code> chain needs <strong>PowerShell 7+</strong>. Check with <code class="i">$PSVersionTable.PSVersion</code>. On Windows PowerShell 5.1 replace each <code class="i">&amp;&amp;</code> with <code class="i">;</code> — but <code class="i">;</code> runs the next command even if the one before it failed.</div>
+  <div class="snip paste"><pre>git add . ; git commit -m "describe what I changed" ; git push</pre></div>
+  <div class="note"><b>note</b>Commands are separated with <code class="i">;</code>, which works in <strong>every</strong> version of PowerShell. If you have seen <em>"The token '&amp;&amp;' is not a valid statement separator in this version"</em>, that is Windows PowerShell 5.1 rejecting <code class="i">&amp;&amp;</code> — <code class="i">;</code> is the fix, and it is what this sheet uses throughout.</div>
+  <h3>If you want it to stop when something fails</h3>
+  <p><code class="i">;</code> runs the next command no matter what happened. To make each step wait on the one before it, in any PowerShell version:</p>
+  <div class="snip paste"><pre>git add . ; if ($?) { git commit -m "describe what I changed" } ; if ($?) { git push }</pre></div>
 
   <h3>Get the latest version from GitHub</h3>
   <div class="snip paste"><pre>git pull</pre></div>
 
   <h3>Where am I and what changed?</h3>
-  <div class="snip paste"><pre>git status &amp;&amp; git log --oneline -10</pre></div>
+  <div class="snip paste"><pre>git status ; git log --oneline -10</pre></div>
 
   <h3>Brand-new repository, start to finish</h3>
   <p>Run this inside your project folder, after making an <strong>empty</strong> repository on GitHub. Replace the URL.</p>
@@ -187,7 +190,7 @@ git clone https://github.com/USERNAME/REPOSITORY.git</pre></div>
 
   <h3>Bin my local changes and match GitHub</h3>
   <div class="note bad"><b>danger</b>This permanently discards uncommitted work. Run <code class="i">git status</code> first and read the list.</div>
-  <div class="snip paste"><pre>git restore . &amp;&amp; git pull</pre></div>
+  <div class="snip paste"><pre>git restore . ; git pull</pre></div>
 </section>
 
 <section id="setup">
@@ -279,6 +282,27 @@ git commit -m "update notes and main script"</pre></div>
     <tr><td>fix crash when the input file is empty</td><td>update</td></tr>
     <tr><td>rewrite README install instructions</td><td>stuff</td></tr>
   </table></div>
+  <h3>Turn the daily loop into one word</h3>
+  <p>Your PowerShell profile is a script that runs every time a terminal opens. Put the loop in there and type one word instead. Works on 5.1 and 7. First, create and open it:</p>
+  <div class="snip paste"><pre>if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }
+notepad $PROFILE</pre></div>
+  <p>Paste this at the bottom, save, close Notepad:</p>
+  <div class="snip paste"><pre>function gs { git status }
+function gl { git log --oneline -10 }
+function gp { git pull }
+
+function gacp {
+    param([Parameter(Mandatory=$true)][string]$Message)
+    git add .
+    if ($?) { git commit -m $Message }
+    if ($?) { git push }
+}</pre></div>
+  <p>Reload it, or just open a new terminal:</p>
+  <div class="snip"><pre>. $PROFILE</pre></div>
+  <p>Your whole day is now one command:</p>
+  <div class="snip paste"><pre>gacp "describe what I changed"</pre></div>
+  <div class="note warn"><b>warning</b>If PowerShell refuses with <em>running scripts is disabled on this system</em>, run PowerShell <strong>as Administrator</strong> once and enter <code class="i">Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code>.</div>
+
   <p>A commit is a local save point and costs nothing — make them small and frequent. A push is a backup. There is no penalty for pushing ten times a day.</p>
 </section>
 
@@ -287,37 +311,37 @@ git commit -m "update notes and main script"</pre></div>
   <p class="lede">Five situations cover essentially every sync problem you will hit working solo across two machines.</p>
 
   <h3>1 — Normal update</h3>
-  <div class="snip paste"><pre>git add . &amp;&amp; git commit -m "describe what I changed" &amp;&amp; git push</pre></div>
+  <div class="snip paste"><pre>git add . ; git commit -m "describe what I changed" ; git push</pre></div>
 
   <h3>2 — Push rejected because GitHub has changes</h3>
   <p>GitHub has commits your PC does not — you edited on the website, or pushed from another machine. Git says <em>"Updates were rejected because the remote contains work that you do not have locally."</em> Bring them down first:</p>
-  <div class="snip paste"><pre>git pull &amp;&amp; git push</pre></div>
+  <div class="snip paste"><pre>git pull ; git push</pre></div>
   <div class="note"><b>note</b>This is not an error you caused. It is Git protecting the commits already on GitHub.</div>
 
   <h3>3 — The pull produced a merge conflict</h3>
   <p>Git could not decide which version of a line to keep, so it is asking you. Nothing is broken and nothing is lost. First, see which files:</p>
   <div class="snip"><pre>git status</pre></div>
   <p>Open each one. You will find markers like this:</p>
-  <div class="snip" data-kind="file"><pre>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+  <div class="snip" data-kind="file" data-label="what you see inside the conflicted file"><pre>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
 your local version of the line
 =======
 the version that came from GitHub
 &gt;&gt;&gt;&gt;&gt;&gt;&gt; origin/main</pre></div>
   <p>Edit the file so it reads the way you want — keep one side, keep both, or rewrite it. Then <strong>delete all three marker lines</strong> and save. Finally:</p>
-  <div class="snip paste"><pre>git add . &amp;&amp; git commit -m "resolve merge conflict" &amp;&amp; git push</pre></div>
+  <div class="snip paste"><pre>git add . ; git commit -m "resolve merge conflict" ; git push</pre></div>
   <div class="note tip"><b>tip</b>Catch leftover markers before committing with <code class="i">git diff --check</code>, or search the folder for <code class="i">&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>. Want out entirely? <code class="i">git merge --abort</code> puts you back exactly where you were before the pull.</div>
   <p><strong>Memory aid:</strong> pull → resolve → add → commit → push</p>
 
   <h3>4 — Discard my changes, take GitHub's version</h3>
   <div class="note bad"><b>danger</b><code class="i">git restore .</code> throws away uncommitted edits to tracked files. They are not recoverable.</div>
   <div class="snip paste"><pre>git status
-git restore . &amp;&amp; git pull</pre></div>
+git restore . ; git pull</pre></div>
 
   <h3>5 — Also delete untracked files</h3>
   <p><code class="i">git restore .</code> never touches files Git has not seen. To clear those too — <strong>preview first</strong>, <code class="i">-n</code> means "show me, don't delete":</p>
   <div class="snip"><pre>git clean -fdn</pre></div>
   <p>Read that list carefully. If it is right:</p>
-  <div class="snip paste"><pre>git clean -fd &amp;&amp; git pull</pre></div>
+  <div class="snip paste"><pre>git clean -fd ; git pull</pre></div>
   <div class="note bad"><b>danger</b><code class="i">git clean -fd</code> permanently deletes untracked files and folders. No undo, no Recycle Bin.</div>
 
   <h3>Not ready to commit, but need to pull</h3>
@@ -335,7 +359,7 @@ git stash pop</pre></div>
     <tr><td>Undo all uncommitted edits</td><td class="m">git restore .</td></tr>
     <tr><td>Unstage a file, keep the edits</td><td class="m">git restore --staged path\to\file</td></tr>
     <tr><td>Fix the last commit message</td><td class="m">git commit --amend -m "better message"</td></tr>
-    <tr><td>Add a forgotten file to the last commit</td><td class="m">git add forgotten.txt &amp;&amp; git commit --amend --no-edit</td></tr>
+    <tr><td>Add a forgotten file to the last commit</td><td class="m">git add forgotten.txt ; git commit --amend --no-edit</td></tr>
     <tr><td>Undo the last commit, keep the changes</td><td class="m">git reset --soft HEAD~1</td></tr>
     <tr><td>Undo the last commit and its changes</td><td class="m">git reset --hard HEAD~1</td></tr>
     <tr><td>Get one file back as GitHub has it</td><td class="m">git checkout origin/main -- path\to\file</td></tr>
@@ -412,14 +436,18 @@ git push</pre></div>
   <h3>Paths with spaces need quotes</h3>
   <div class="snip"><pre>cd "C:\Users\Me\My Projects\Ephemeral"</pre></div>
 
-  <h3>Chaining commands</h3>
+  <h3>Running several commands on one line</h3>
   <div class="tw"><table>
-    <tr><th>Operator</th><th>Behaviour</th></tr>
-    <tr><td class="m">&amp;&amp;</td><td>Runs the next command <strong>only if</strong> the previous one succeeded. PowerShell 7+ only.</td></tr>
-    <tr><td class="m">;</td><td>Runs the next command <strong>regardless</strong> of failure. Works everywhere.</td></tr>
+    <tr><th>Separator</th><th>Behaviour</th></tr>
+    <tr><td class="m">;</td><td>Runs the next command <strong>whatever happened</strong> to the one before it. Works in every version — this sheet uses it.</td></tr>
+    <tr><td class="m">if ($?) { }</td><td>Runs the next command <strong>only if</strong> the last one succeeded. Works in every version. <code class="i">$?</code> means "did that work?"</td></tr>
+    <tr><td class="m">&amp;&amp;</td><td>"Only if it worked", short form — <strong>PowerShell 7 and later only</strong>. Windows PowerShell 5.1 rejects it with <em>the token '&amp;&amp;' is not a valid statement separator in this version</em>.</td></tr>
   </table></div>
-  <div class="snip"><pre>$PSVersionTable.PSVersion                        # which PowerShell is this?
-winget install --id Microsoft.PowerShell -e      # get version 7</pre></div>
+  <p>Find out which one you are running. A <strong>5</strong> in the Major column is Windows PowerShell 5.1 — the version that ships with Windows, and the one VS Code usually opens by default.</p>
+  <div class="snip"><pre>$PSVersionTable.PSVersion</pre></div>
+  <p>Everything here works on 5.1. If you want <code class="i">&amp;&amp;</code> and a much better terminal, PowerShell 7 installs alongside it without replacing it:</p>
+  <div class="snip"><pre>winget install --id Microsoft.PowerShell -e</pre></div>
+  <div class="note tip"><b>tip</b>In VS Code, choose which one new terminals open with: <kbd>Ctrl+Shift+P</kbd> ▸ <em>Terminal: Select Default Profile</em>.</div>
 
   <h3>Quoting commit messages</h3>
   <p>Single quotes are safest — double quotes let <code class="i">$</code> expand into a variable.</p>
@@ -505,6 +533,7 @@ git --no-pager log --oneline -20</pre></div>
     <tr><td><span class="swatch" style="background:var(--t-str)"></span>Deep blue</td><td>Text, paths, URLs</td><td class="m">git commit -m "my message"</td></tr>
     <tr><td><span class="swatch" style="background:var(--t-ph)"></span>Red</td><td>Replace this before running</td><td class="m">git clone https://github.com/USERNAME/REPOSITORY.git</td></tr>
     <tr><td><span class="swatch" style="background:var(--t-ref)"></span>Green</td><td>Branch and remote names</td><td class="m">git push -u origin main</td></tr>
+    <tr><td><span class="swatch" style="background:var(--t-var)"></span>Teal</td><td>A PowerShell variable</td><td class="m">notepad $PROFILE</td></tr>
   </table></div>
 </section>
 </main>
@@ -542,7 +571,9 @@ git --no-pager log --oneline -20</pre></div>
   }
 
   /* ---------- syntax colouring: same rules as the Word document ---------- */
-  var CMDS = {git:1, cd:1, winget:1, "Set-Content":1, "Get-Content":1, code:1, gh:1, ls:1, echo:1, notepad:1};
+  var CMDS = {git:1, cd:1, winget:1, "Set-Content":1, "Get-Content":1, "Test-Path":1, "Set-ExecutionPolicy":1,
+              code:1, gh:1, ls:1, echo:1, notepad:1, gacp:1, gs:1, gl:1, gp:1};
+  var KEYWORDS = {"if":1, "else":1, "elseif":1, "function":1, "param":1, "foreach":1, "while":1, "return":1, "Mandatory":1};
   var REFS = {HEAD:1, "origin/main":1, main:1, master:1, origin:1};
 
   function span(cls, text){
@@ -569,6 +600,15 @@ git --no-pager log --oneline -20</pre></div>
       if (tok.charAt(0) === "#") { frag.appendChild(span("t-cmt", line.slice(m.index))); return; }
       if (tok === "&&" || tok === ";" || tok === "|" || tok === "||") {
         frag.appendChild(span("t-cmd", tok)); expectCmd = true; afterGit = false; continue;
+      }
+      if (tok === "{" || tok === "}") {
+        frag.appendChild(document.createTextNode(tok)); expectCmd = true; afterGit = false; continue;
+      }
+      if (tok.charAt(0) === "$") {
+        frag.appendChild(span("t-var", tok)); expectCmd = false; afterGit = false; continue;
+      }
+      if (KEYWORDS[tok] || KEYWORDS[tok.replace(/^[!(]+/, "")]) {
+        frag.appendChild(span("t-sub", tok)); expectCmd = false; afterGit = false; continue;
       }
       if (expectCmd && CMDS[tok]) {
         frag.appendChild(span("t-cmd", tok));
@@ -646,7 +686,7 @@ git --no-pager log --oneline -20</pre></div>
     var tag = document.createElement("span");
     tag.className = "tag";
     var isFile = snip.dataset.kind === "file";
-    tag.textContent = isFile ? "what you see inside the conflicted file"
+    tag.textContent = isFile ? (snip.dataset.label || "what you see in the file")
       : isPaste ? (lines > 1 ? "paste all " + lines + " lines" : "one-liner")
       : (lines > 1 ? lines + " commands, one at a time" : "one command");
     var btn = document.createElement("button");

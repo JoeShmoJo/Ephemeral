@@ -1,0 +1,661 @@
+<title>Pull Request Card</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;600;700&display=swap">
+<style>
+:root{
+  --ground:#FAFBFC; --panel:#FFFFFF; --sunk:#F1F4F8; --line:#DDE3EA; --line-soft:#EAEEF3;
+  --ink:#101820; --ink-2:#3F4C59; --ink-3:#6B7A88;
+  --ps:#0B3E7A;            /* PowerShell console blue */
+  --ps-deep:#012456;
+  --git:#C8420C;           /* Git orange, deepened for contrast */
+  --ok:#15683C; --warn:#8A5200; --bad:#A4141C;
+  /* token colours */
+  --t-cmd:#C8410C; --t-sub:#6B2FA8; --t-flag:#0B5FA5; --t-str:#0A3069;
+  --t-ph:#A4141C; --t-cmt:#6B7A88; --t-ref:#15683C; --t-var:#0F6E7A; --t-plain:#22303C;
+  --code-bg:#F5F8FB; --code-line:#DCE4EC; --paste-bg:#EFF6FF; --paste-line:#BFD8F2;
+  --shadow:0 1px 2px rgba(16,24,32,.05),0 8px 24px -16px rgba(16,24,32,.25);
+  --rail:250px;
+}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme="light"]){
+  --ground:#0D1319; --panel:#131B23; --sunk:#0A1017; --line:#26323D; --line-soft:#1D2731;
+  --ink:#E6EDF3; --ink-2:#AFBDC9; --ink-3:#7F8F9D;
+  --ps:#7FB2F0; --ps-deep:#0A2A55; --git:#FF8A5B;
+  --ok:#57C08A; --warn:#E0A64A; --bad:#FF7B72;
+  --t-cmd:#FF8A5B; --t-sub:#C8A0FF; --t-flag:#79C0FF; --t-str:#A5D6FF;
+  --t-ph:#FF7B72; --t-cmt:#7F8F9D; --t-ref:#7EE2A8; --t-var:#5FD0DB; --t-plain:#D3DEE8;
+  --code-bg:#0B121A; --code-line:#232F3B; --paste-bg:#0C1725; --paste-line:#25405F;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+}}
+:root[data-theme="dark"]{
+  --ground:#0D1319; --panel:#131B23; --sunk:#0A1017; --line:#26323D; --line-soft:#1D2731;
+  --ink:#E6EDF3; --ink-2:#AFBDC9; --ink-3:#7F8F9D;
+  --ps:#7FB2F0; --ps-deep:#0A2A55; --git:#FF8A5B;
+  --ok:#57C08A; --warn:#E0A64A; --bad:#FF7B72;
+  --t-cmd:#FF8A5B; --t-sub:#C8A0FF; --t-flag:#79C0FF; --t-str:#A5D6FF;
+  --t-ph:#FF7B72; --t-cmt:#7F8F9D; --t-ref:#7EE2A8; --t-var:#5FD0DB; --t-plain:#D3DEE8;
+  --code-bg:#0B121A; --code-line:#232F3B; --paste-bg:#0C1725; --paste-line:#25405F;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans",system-ui,Segoe UI,sans-serif;
+  font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3{text-wrap:balance;margin:0}
+a{color:var(--ps)}
+
+/* ---------- masthead ---------- */
+.mast{background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40}
+.mast-in{max-width:1180px;margin:0 auto;padding:14px 26px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.brand b{font-size:19px;font-weight:600;letter-spacing:-.015em}
+.brand span{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-3);letter-spacing:.04em}
+.find{flex:1;min-width:210px;display:flex;align-items:center;gap:8px;background:var(--sunk);
+  border:1px solid var(--line);border-radius:7px;padding:0 10px}
+.find input{flex:1;background:none;border:0;outline:none;color:var(--ink);font:inherit;font-size:14px;padding:8px 0}
+.find kbd{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:var(--ink-3);border:1px solid var(--line);
+  border-radius:4px;padding:1px 5px;background:var(--panel)}
+.find svg{width:15px;height:15px;fill:none;stroke:var(--ink-3);stroke-width:2}
+
+/* ---------- shell ---------- */
+.shell{max-width:1180px;margin:0 auto;padding:26px;display:grid;grid-template-columns:var(--rail) minmax(0,1fr);gap:38px;align-items:start}
+nav.rail{position:sticky;top:82px;max-height:calc(100vh - 104px);overflow-y:auto;padding-right:6px}
+nav.rail ol{list-style:none;margin:0;padding:0}
+nav.rail a{display:block;padding:5px 10px;border-left:2px solid transparent;color:var(--ink-2);
+  text-decoration:none;font-size:13.5px;border-radius:0 5px 5px 0}
+nav.rail a:hover{background:var(--sunk);color:var(--ink)}
+nav.rail a.on{border-left-color:var(--git);color:var(--ink);font-weight:600;background:var(--sunk)}
+nav.rail .grp{font-family:"IBM Plex Mono",monospace;font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;
+  color:var(--ink-3);padding:16px 10px 5px}
+
+main{min-width:0;max-width:78ch}
+section{scroll-margin-top:92px}
+section+section{margin-top:46px;padding-top:34px;border-top:1px solid var(--line-soft)}
+h2.sec{font-size:25px;font-weight:600;letter-spacing:-.02em;display:flex;align-items:baseline;gap:11px}
+h2.sec .n{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--git);font-weight:500}
+h3{font-size:16.5px;font-weight:600;margin:28px 0 8px}
+p{margin:9px 0;color:var(--ink-2)}
+p strong{color:var(--ink);font-weight:600}
+.lede{font-size:16.5px;color:var(--ink-2);margin-bottom:4px}
+ul{margin:9px 0;padding-left:20px;color:var(--ink-2)}
+li{margin:4px 0}
+code.i{font-family:"IBM Plex Mono",monospace;font-size:.87em;background:var(--sunk);
+  border:1px solid var(--line-soft);border-radius:4px;padding:1px 5px;color:var(--ink)}
+
+/* ---------- snippets ---------- */
+.snip{margin:14px 0;border:1px solid var(--code-line);border-radius:9px;background:var(--code-bg);overflow:hidden}
+.snip.paste{background:var(--paste-bg);border-color:var(--paste-line)}
+.snip-top{display:flex;align-items:center;gap:10px;padding:6px 8px 6px 12px;border-bottom:1px solid var(--code-line);
+  background:color-mix(in srgb,var(--code-bg) 60%,var(--ground))}
+.snip.paste .snip-top{border-bottom-color:var(--paste-line)}
+.snip-top .tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.snip.paste .snip-top .tag{color:var(--ps)}
+.copy{font:inherit;font-size:12px;font-weight:600;color:var(--ink-2);background:var(--panel);
+  border:1px solid var(--line);border-radius:6px;padding:3px 10px;cursor:pointer;white-space:nowrap;
+  transition:background .12s,color .12s,border-color .12s}
+.copy:hover{border-color:var(--git);color:var(--git)}
+.copy:focus-visible{outline:2px solid var(--git);outline-offset:2px}
+.copy.done{background:var(--ok);border-color:var(--ok);color:#fff}
+pre{margin:0;padding:11px 14px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;font-size:13px;
+  line-height:1.75;color:var(--t-plain);tab-size:2}
+.t-cmd{color:var(--t-cmd);font-weight:600}.t-sub{color:var(--t-sub);font-weight:600}
+.t-flag{color:var(--t-flag)}.t-str{color:var(--t-str)}.t-ph{color:var(--t-ph);font-weight:600}
+.t-cmt{color:var(--t-cmt);font-style:italic}.t-var{color:var(--t-var)}.t-ref{color:var(--t-ref)}.t-conflict{color:var(--bad);font-weight:600}
+
+/* ---------- callouts ---------- */
+.note{margin:14px 0;padding:11px 14px;border-left:3px solid var(--ps);background:var(--sunk);border-radius:0 7px 7px 0;font-size:14.5px;color:var(--ink-2)}
+.note.tip{border-left-color:var(--ok)}
+.note.warn{border-left-color:var(--warn)}
+.note.bad{border-left-color:var(--bad)}
+.note b{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ps);margin-right:8px}
+.note.tip b{color:var(--ok)}.note.warn b{color:var(--warn)}.note.bad b{color:var(--bad)}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto;margin:14px 0;border:1px solid var(--line);border-radius:9px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{text-align:left;font-weight:600;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);
+  padding:9px 13px;background:var(--sunk);border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 13px;border-bottom:1px solid var(--line-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.m{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink);white-space:nowrap}
+td.m .t-ph{white-space:nowrap}
+
+/* ---------- misc ---------- */
+.swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:baseline}
+.empty{display:none;padding:26px;text-align:center;color:var(--ink-3);font-size:14.5px}
+.foot{max-width:1180px;margin:0 auto;padding:30px 26px 50px;color:var(--ink-3);font-size:13px;border-top:1px solid var(--line-soft)}
+kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--sunk);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 5px;color:var(--ink);white-space:nowrap}
+.find kbd{border-bottom-width:1px}
+mark{background:color-mix(in srgb,var(--git) 26%,transparent);color:inherit;border-radius:2px}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr;gap:0;padding:20px}
+  nav.rail{position:static;max-height:none;margin-bottom:26px;border-bottom:1px solid var(--line);padding-bottom:10px}
+  nav.rail ol{display:flex;flex-wrap:wrap;gap:4px}
+  nav.rail .grp{width:100%;padding:10px 0 2px}
+  nav.rail a{border-left:0;border-bottom:2px solid transparent;border-radius:5px}
+  nav.rail a.on{border-left:0;border-bottom-color:var(--git)}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div class="brand"><b>Pull Request Card</b><span>VS&nbsp;Code&nbsp;/&nbsp;GitHub</span></div>
+    <label class="find">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Search steps, buttons, commands…" autocomplete="off" aria-label="Search the cheat sheet">
+      <kbd>/</kbd>
+    </label>
+  </div>
+</header>
+
+<div class="shell">
+<nav class="rail" aria-label="Sections">
+  <ol id="toc"></ol>
+</nav>
+
+<main>
+<p class="empty" id="empty">Nothing matches that. Try <code class="i">draft</code>, <code class="i">conflict</code>, or <code class="i">checkout</code>.</p>
+
+<section id="what">
+  <h2 class="sec"><span class="n">01</span>What a pull request is</h2>
+  <p class="lede">A <strong>proposal</strong>: "here are some commits on a branch — look at them, then put them into <code class="i">main</code>."</p>
+  <p>It is not a Git feature; it is a GitHub feature wrapped around two branches. The PR is a page showing the difference between your branch and <code class="i">main</code>, collecting comments and test results, ending in a merge button.</p>
+  <div class="snip" data-kind="file" data-label="the shape of the whole thing"><pre>branch → commit → push → OPEN PR → review → MERGE → delete branch</pre></div>
+  <p>Nothing touches <code class="i">main</code> until the merge. Until then the branch is a sandbox — push half-finished work to it as often as you like.</p>
+
+  <h3>Why bother when you are the only developer</h3>
+  <ul>
+    <li><strong>You review your own diff.</strong> Reading every changed line in one screen catches the debug print you left in, the file you did not mean to commit, the password in a config.</li>
+    <li><strong><code class="i">main</code> stays releasable.</strong> If a branch turns out badly, close the PR and delete it. Nothing to undo.</li>
+    <li><strong>Tests run before the merge.</strong> A red check stops a bad merge instead of reporting it afterwards.</li>
+    <li><strong>The reasoning is written down.</strong> In six months the description explains <em>why</em>, which the code never does.</li>
+    <li><strong>It is the habit every team expects.</strong> Practising alone costs nothing.</li>
+  </ul>
+  <div class="note tip"><b>tip</b>Working solo, keep branches small and short-lived — one change, one PR, merged the same day. A branch that lives three weeks becomes a merge conflict.</div>
+</section>
+
+<section id="setup">
+  <h2 class="sec"><span class="n">02</span>Setup, once</h2>
+  <h3>Install and sign in</h3>
+  <ul>
+    <li><kbd>Ctrl+Shift+X</kbd> ▸ search <strong>GitHub Pull Requests</strong>, published by GitHub ▸ Install.</li>
+    <li>A <strong>GitHub icon</strong> appears in the Activity Bar down the left edge. Click it ▸ <strong>Sign in</strong>.</li>
+    <li>Nothing happens? Use the <strong>Accounts</strong> icon at the bottom of the Activity Bar ▸ <em>Sign in with GitHub</em>.</li>
+  </ul>
+  <div class="note"><b>note</b>This sign-in is separate from the credential Git uses to push. Authorising GitHub twice on a new machine is normal — once for the extension, once on your first <code class="i">git push</code>.</div>
+
+  <h3>Check the repository is connected</h3>
+  <p>The extension only appears when the folder you have open is a Git repository with a GitHub remote.</p>
+  <div class="snip"><pre>git remote -v</pre></div>
+
+  <h3>Two settings worth changing</h3>
+  <div class="tw"><table>
+    <tr><th>Setting</th><th>Why</th></tr>
+    <tr><td class="m">Git: Autofetch</td><td>VS Code notices when GitHub has moved ahead, so you are not working from a stale <code class="i">main</code>. <kbd>Ctrl+,</kbd> then search <em>autofetch</em>.</td></tr>
+    <tr><td class="m">Default Merge Method</td><td>Set to <em>squash</em> if you want each PR to land as one tidy commit. Search <em>default merge method</em>.</td></tr>
+  </table></div>
+</section>
+
+<section id="where">
+  <h2 class="sec"><span class="n">03</span>Where everything lives</h2>
+  <div class="tw"><table>
+    <tr><th>Where</th><th>What it is for</th></tr>
+    <tr><td>GitHub icon, Activity Bar</td><td>The <strong>Pull Requests</strong> and <strong>Issues</strong> lists — yours, assigned to you, all open. Home base.</td></tr>
+    <tr><td>Source Control <kbd>Ctrl+Shift+G</kbd></td><td>Stage, commit, push. The <strong>Create Pull Request</strong> button appears here after you publish a branch.</td></tr>
+    <tr><td>Branch name, bottom-left</td><td>Click to switch or create a branch. Fastest branch switcher in the app.</td></tr>
+    <tr><td>Command Palette <kbd>Ctrl+Shift+P</kbd></td><td>Every command by name. Type <em>pull request</em> to browse.</td></tr>
+    <tr><td>PR description tab</td><td>Description, checks, reviewers, comment box, merge button.</td></tr>
+    <tr><td>Changes in Pull Request</td><td>Appears while a PR is checked out — the file-by-file diff you review from.</td></tr>
+  </table></div>
+  <div class="note"><b>note</b>VS Code and the extension move things around every few releases. <strong>The Command Palette is the part that does not move</strong> — <kbd>Ctrl+Shift+P</kbd>, type <em>pull request</em>, and every command on this sheet is in the list.</div>
+</section>
+
+<section id="open">
+  <h2 class="sec"><span class="n">04</span>Open a PR, start to finish</h2>
+  <p class="lede">The loop to keep open the first few times.</p>
+
+  <h3>1 — Start a branch</h3>
+  <p>Click the <strong>branch name in the bottom-left corner</strong> ▸ <em>Create new branch…</em> ▸ name it after the change ▸ Enter.</p>
+  <div class="snip"><pre>git switch -c fix-login-crash</pre></div>
+  <div class="note warn"><b>warning</b>Branch <em>before</em> you make the change where you can. Already edited files? No problem — uncommitted edits follow you onto the new branch.</div>
+
+  <h3>2 — Commit</h3>
+  <p><kbd>Ctrl+Shift+G</kbd>, type a message, press <kbd>Ctrl+Enter</kbd>. VS Code stages everything if nothing is staged.</p>
+  <div class="snip"><pre>git add .
+git commit -m "fix the crash when the login form is empty"</pre></div>
+
+  <h3>3 — Publish the branch</h3>
+  <p>The blue button in Source Control now reads <strong>Publish Branch</strong>. That creates the branch on GitHub, which is what makes a PR possible.</p>
+  <div class="snip"><pre>git push -u origin fix-login-crash</pre></div>
+
+  <h3>4 — Create the pull request</h3>
+  <p><kbd>Ctrl+Shift+P</kbd> ▸ <strong>GitHub Pull Requests: Create Pull Request</strong>, or the button VS Code offers as soon as the branch is published. The panel asks for four things:</p>
+  <div class="tw"><table>
+    <tr><th>Field</th><th>What to put</th></tr>
+    <tr><td>Base</td><td>The branch to merge <strong>into</strong> — almost always <code class="i">main</code>.</td></tr>
+    <tr><td>Merge / Branch</td><td>The branch the change is <strong>on</strong> — the one you just published.</td></tr>
+    <tr><td>Title</td><td>Same style as a commit message: <em>fix crash when the login form is empty</em>.</td></tr>
+    <tr><td>Description</td><td>Why, not what — the diff already shows what. Note anything you are unsure about.</td></tr>
+  </table></div>
+  <div class="note tip"><b>tip</b>Not finished? Use the arrow beside Create ▸ <strong>Create as Draft</strong>. Checks still run, but it cannot be merged until you press <em>Ready for review</em> — ideal for moving work in progress between machines.</div>
+
+  <h3>5 — Read your own diff</h3>
+  <p>Expand the PR ▸ <strong>Files Changed</strong>. Click each file for a red/green diff. Read every line before merging your own work — this is the entire point of the exercise.</p>
+
+  <h3>6 — Merge</h3>
+  <p>Bottom of the PR tab: pick a method, confirm, and tick <strong>Delete branch</strong>.</p>
+  <div class="tw"><table>
+    <tr><th>Method</th><th>What lands on main</th></tr>
+    <tr><td>Create a merge commit</td><td>Every commit from the branch plus a merge commit. Full history, messier graph.</td></tr>
+    <tr><td>Squash and merge</td><td>One commit containing the whole change. Tidy <code class="i">main</code> — the good default working solo.</td></tr>
+    <tr><td>Rebase and merge</td><td>Each commit replayed onto <code class="i">main</code>, no merge commit. Linear, but no record of the branch.</td></tr>
+  </table></div>
+
+  <h3>7 — Get back to main</h3>
+  <p>The merge happened on GitHub, so your PC does not know about it yet.</p>
+  <div class="snip paste"><pre>git switch main
+git pull
+git branch -d fix-login-crash</pre></div>
+</section>
+
+<section id="review">
+  <h2 class="sec"><span class="n">05</span>Reviewing</h2>
+
+  <h3>Look without changing anything</h3>
+  <p>Click a PR in the GitHub view. The description tab opens with the conversation, the checks and the file list; clicking a file opens a read-only diff. Your working folder is untouched.</p>
+
+  <h3>Check it out to run it</h3>
+  <p>To actually run the code: <strong>Checkout</strong> on the PR tab, or <kbd>Ctrl+Shift+P</kbd> ▸ <strong>Checkout Pull Request</strong>. When you are done, <strong>Exit Review Mode</strong> puts you back on the branch you came from.</p>
+  <div class="snip"><pre>git switch fix-login-crash   # the same thing by hand
+git switch main              # and back</pre></div>
+  <div class="note warn"><b>warning</b>Commit or <code class="i">git stash</code> your own work first. VS Code refuses the switch if uncommitted changes are in the way.</div>
+
+  <h3>Comment on a line</h3>
+  <ul>
+    <li>Open the file diff, hover the line number, click the <strong>+</strong>.</li>
+    <li><strong>Add Comment</strong> posts immediately. <strong>Start Review</strong> holds comments back so several post together.</li>
+  </ul>
+  <div class="tw"><table>
+    <tr><th>Verdict</th><th>Means</th></tr>
+    <tr><td>Comment</td><td>Notes, no judgement. Neither blocks nor unblocks the merge.</td></tr>
+    <tr><td>Approve</td><td>Good to merge. <strong>GitHub will not let you approve your own PR</strong> — merge it directly instead.</td></tr>
+    <tr><td>Request changes</td><td>Blocks the merge until a later version is approved.</td></tr>
+  </table></div>
+
+  <h3>Answer comments and push a fix</h3>
+  <p>Reply in the thread, then <strong>Resolve conversation</strong>. To change the code, commit and push to the same branch:</p>
+  <div class="snip paste"><pre>git add .
+git commit -m "address review comments"
+git push</pre></div>
+  <p>The PR updates itself. There is no "new PR" step — a pull request tracks the branch, so every push to it shows up automatically.</p>
+</section>
+
+<section id="checks">
+  <h2 class="sec"><span class="n">06</span>Checks and conflicts</h2>
+
+  <h3>Reading the checks</h3>
+  <div class="tw"><table>
+    <tr><th>Symbol</th><th>Meaning</th></tr>
+    <tr><td>Yellow dot</td><td>Still running. The merge button waits.</td></tr>
+    <tr><td>Green tick</td><td>Passed. Safe to merge.</td></tr>
+    <tr><td>Red cross</td><td>Failed. <strong>Details</strong> opens the log on GitHub with the failing step expanded.</td></tr>
+  </table></div>
+  <p>Fix it like any other change: commit to the branch, push, checks run again.</p>
+
+  <h3>"This branch is out of date with main"</h3>
+  <p>Something else merged first. Bring <code class="i">main</code> into your branch — in VS Code that is <kbd>Ctrl+Shift+P</kbd> ▸ <strong>Git: Merge Branch…</strong> ▸ <code class="i">origin/main</code>.</p>
+  <div class="snip paste"><pre>git fetch origin
+git merge origin/main
+git push</pre></div>
+
+  <h3>A conflict inside a PR</h3>
+  <p>GitHub refuses to merge. Resolve it <strong>on your PC</strong>, not on the website:</p>
+  <ul>
+    <li>Run the merge above. Conflicted files appear in Source Control under <em>Merge Changes</em>.</li>
+    <li>Open each one. VS Code shows <strong>Accept Current Change / Accept Incoming Change / Accept Both</strong> above the conflict, or <em>Resolve in Merge Editor</em> for a three-pane view.</li>
+    <li><strong>Current</strong> is your branch. <strong>Incoming</strong> is <code class="i">main</code>.</li>
+  </ul>
+  <div class="snip paste"><pre>git add .
+git commit -m "merge main into fix-login-crash"
+git push</pre></div>
+  <div class="note tip"><b>tip</b>Merge <code class="i">main</code> into a long-running branch every day or two. Small conflicts caught early beat one enormous conflict at merge time.</div>
+</section>
+
+<section id="extras">
+  <h2 class="sec"><span class="n">07</span>Worth knowing</h2>
+
+  <h3>Link a PR to an issue</h3>
+  <p>Put a closing keyword in the description and GitHub closes the issue on merge. Typing <code class="i">#</code> in the description brings up a searchable list.</p>
+  <div class="snip" data-kind="file" data-label="in the PR description"><pre>Closes #14
+Fixes #14
+Resolves #14</pre></div>
+
+  <h3>Create an issue from code</h3>
+  <p>Select a line ▸ right-click ▸ <strong>Create Issue From Selection</strong>. The issue links back to the exact line. A <code class="i">TODO</code> comment can be turned into one the same way.</p>
+
+  <h3>Protect main so the habit sticks</h3>
+  <p>On GitHub: repository ▸ <strong>Settings ▸ Branches ▸ Add rule</strong> ▸ branch name <code class="i">main</code> ▸ tick <em>Require a pull request before merging</em>. A direct push to <code class="i">main</code> is then rejected and you have to use a PR.</p>
+
+  <h3>PRs from the terminal</h3>
+  <p>GitHub's own CLI, for when VS Code is not open.</p>
+  <div class="snip"><pre>winget install --id GitHub.cli -e
+gh auth login
+gh pr create --fill
+gh pr status
+gh pr checks
+gh pr merge --squash --delete-branch</pre></div>
+</section>
+
+<section id="palette">
+  <h2 class="sec"><span class="n">08</span>Command Palette</h2>
+  <p class="lede">Press <kbd>Ctrl+Shift+P</kbd> and start typing.</p>
+  <div class="tw"><table>
+    <tr><th>Type this</th><th>Does what</th></tr>
+    <tr><td class="m">Create Pull Request</td><td>Opens the create-PR panel for the current branch</td></tr>
+    <tr><td class="m">Checkout Pull Request</td><td>Switches your working folder to a PR's branch</td></tr>
+    <tr><td class="m">Exit Review Mode</td><td>Leaves a checked-out PR, back to your branch</td></tr>
+    <tr><td class="m">Open Pull Request on GitHub</td><td>Opens the PR in a browser</td></tr>
+    <tr><td class="m">Refresh Pull Requests View</td><td>When the list is showing something stale</td></tr>
+    <tr><td class="m">Git: Create Branch</td><td>New branch from where you are</td></tr>
+    <tr><td class="m">Git: Checkout to</td><td>Switch branches</td></tr>
+    <tr><td class="m">Git: Publish Branch</td><td>Push a new local branch to GitHub</td></tr>
+    <tr><td class="m">Git: Sync</td><td>Pull then push, in one action</td></tr>
+    <tr><td class="m">Git: Merge Branch</td><td>Merge another branch into this one</td></tr>
+    <tr><td class="m">Git: Undo Last Commit</td><td>Puts the last commit's changes back as edits</td></tr>
+    <tr><td class="m">Git: Stash</td><td>Park uncommitted changes</td></tr>
+  </table></div>
+  <div class="tw"><table>
+    <tr><th>Keys</th><th>Opens</th></tr>
+    <tr><td class="m">Ctrl+Shift+P</td><td>Command Palette — everything</td></tr>
+    <tr><td class="m">Ctrl+Shift+G</td><td>Source Control: stage, commit, push</td></tr>
+    <tr><td class="m">Ctrl+Enter</td><td>Commit, when the message box has focus</td></tr>
+    <tr><td class="m">Ctrl+Shift+X</td><td>Extensions</td></tr>
+    <tr><td class="m">Ctrl+`</td><td>The terminal</td></tr>
+  </table></div>
+</section>
+
+<section id="trouble">
+  <h2 class="sec"><span class="n">09</span>When it will not behave</h2>
+  <div class="tw"><table>
+    <tr><th>Symptom</th><th>Fix</th></tr>
+    <tr><td>No <strong>Create Pull Request</strong> button</td><td>The branch is not published. <code class="i">git push -u origin BRANCHNAME</code>. Also check you are not sitting on <code class="i">main</code> — you cannot open a PR from <code class="i">main</code> into <code class="i">main</code>.</td></tr>
+    <tr><td>GitHub view is empty, or asks you to sign in forever</td><td>Accounts icon ▸ sign out of GitHub ▸ sign in again. Still looping: close VS Code, reopen, retry.</td></tr>
+    <tr><td>GitHub view does not appear at all</td><td>The open folder is not a Git repository with a GitHub remote. Check <code class="i">git remote -v</code>, and make sure you opened the project folder itself, not its parent.</td></tr>
+    <tr><td>Checkout is refused</td><td>Uncommitted changes are in the way. Commit, or <code class="i">git stash</code>, then retry.</td></tr>
+    <tr><td>PR shows commits you did not expect</td><td>Wrong base, or the branch started from an old <code class="i">main</code>. Merge <code class="i">origin/main</code> in and check the base on the PR tab.</td></tr>
+    <tr><td>Merge button greyed out</td><td>A check is running, a review requested changes, or there is a conflict. The PR tab says which.</td></tr>
+    <tr><td>Pushed, but the PR did not update</td><td>You pushed a different branch than the PR tracks. <code class="i">git status</code> names the current one.</td></tr>
+  </table></div>
+
+  <h3>I committed to main by mistake</h3>
+  <p>Nothing is lost — the commits just need a branch of their own.</p>
+  <div class="snip paste"><pre>git switch -c fix-login-crash
+git switch main
+git reset --hard origin/main
+git switch fix-login-crash
+git push -u origin fix-login-crash</pre></div>
+  <div class="note bad"><b>danger</b>That <code class="i">git reset --hard</code> throws away anything on <code class="i">main</code> that is not on GitHub — which is what you want here, <strong>because the first line already copied those commits onto the new branch</strong>. Run <code class="i">git log --oneline -5</code> on the new branch first and confirm they are there.</div>
+</section>
+
+<section id="card">
+  <h2 class="sec"><span class="n">10</span>One-page summary</h2>
+
+  <h3>Every change, start to finish</h3>
+  <div class="snip paste"><pre>git switch -c short-name-for-the-change
+git add .
+git commit -m "what this change does"
+git push -u origin short-name-for-the-change</pre></div>
+  <p>Then <kbd>Ctrl+Shift+P</kbd> ▸ <strong>Create Pull Request</strong> ▸ read the diff ▸ merge ▸ tick <em>Delete branch</em>.</p>
+
+  <h3>Afterwards</h3>
+  <div class="snip paste"><pre>git switch main
+git pull</pre></div>
+
+  <h3>Answering review comments</h3>
+  <div class="snip paste"><pre>git add .
+git commit -m "address review comments"
+git push</pre></div>
+
+  <h3>Branch out of date</h3>
+  <div class="snip paste"><pre>git fetch origin
+git merge origin/main
+git push</pre></div>
+
+  <h3>The four buttons that matter</h3>
+  <div class="tw"><table>
+    <tr><th>Button</th><th>When</th></tr>
+    <tr><td>Publish Branch</td><td>After the first commit on a new branch</td></tr>
+    <tr><td>Create Pull Request</td><td>Once the branch is on GitHub</td></tr>
+    <tr><td>Checkout</td><td>To run or edit a PR's code locally</td></tr>
+    <tr><td>Squash and merge</td><td>Checks green, diff read, done</td></tr>
+  </table></div>
+</section>
+
+</main>
+</div>
+
+<footer class="foot">Blue blocks are complete — copy the whole thing. Grey blocks are single commands. Every button on this sheet also exists in the Command Palette: <kbd>Ctrl+Shift+P</kbd>, type <em>pull request</em>.</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- section navigation, built from the document ---------- */
+  var secs = Array.prototype.slice.call(document.querySelectorAll("main section"));
+  var toc  = document.getElementById("toc");
+  var links = {};
+  secs.forEach(function(s){
+    var h = s.querySelector("h2.sec");
+    var num = h.querySelector(".n").textContent;
+    var name = h.textContent.replace(num, "").trim();
+    var li = document.createElement("li");
+    var a = document.createElement("a");
+    a.href = "#" + s.id; a.textContent = name; a.dataset.for = s.id;
+    li.appendChild(a); toc.appendChild(li); links[s.id] = a;
+  });
+
+  if ("IntersectionObserver" in window) {
+    var seen = {};
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ seen[e.target.id] = e.isIntersecting; });
+      var current = null;
+      secs.forEach(function(s){ if (!current && seen[s.id]) current = s.id; });
+      Object.keys(links).forEach(function(id){ links[id].classList.toggle("on", id === current); });
+    }, { rootMargin: "-88px 0px -60% 0px" });
+    secs.forEach(function(s){ io.observe(s); });
+  }
+
+  /* ---------- syntax colouring: same rules as the Word document ---------- */
+  var CMDS = {git:1, cd:1, winget:1, "Set-Content":1, "Get-Content":1, "Test-Path":1, "Set-ExecutionPolicy":1,
+              code:1, gh:1, ls:1, echo:1, notepad:1, gacp:1, gs:1, gl:1, gp:1};
+  var KEYWORDS = {"if":1, "else":1, "elseif":1, "function":1, "param":1, "foreach":1, "while":1, "return":1, "Mandatory":1};
+  var REFS = {HEAD:1, "origin/main":1, main:1, master:1, origin:1};
+
+  function span(cls, text){
+    var el = document.createElement("span");
+    if (cls) el.className = cls;
+    el.textContent = text;
+    return el;
+  }
+
+  function colourLine(line, frag){
+    var trimmed = line.trim();
+    if (trimmed === "")            { frag.appendChild(document.createTextNode(line)); return; }
+    if (trimmed.charAt(0) === "#") { frag.appendChild(span("t-cmt", line)); return; }
+    if (/^(<{7}|={7}|>{7})/.test(trimmed) || trimmed === "=======") { frag.appendChild(span("t-conflict", line)); return; }
+    if (trimmed.charAt(0) === "@" || trimmed.charAt(0) === '"' || trimmed.charAt(0) === "*" || trimmed.charAt(0) === ".") {
+      /* here-string body and .gitignore contents: leave plain */
+      if (!/^\S+\s+\S/.test(trimmed) || trimmed.indexOf("|") > -1) { /* fall through for the piped closing line */ }
+    }
+
+    var re = /("[^"]*"|'[^']*'|\s+|\S+)/g, m, expectCmd = true, afterGit = false;
+    while ((m = re.exec(line)) !== null) {
+      var tok = m[0];
+      if (/^\s+$/.test(tok)) { frag.appendChild(document.createTextNode(tok)); continue; }
+      if (tok.charAt(0) === "#") { frag.appendChild(span("t-cmt", line.slice(m.index))); return; }
+      if (tok === "&&" || tok === ";" || tok === "|" || tok === "||") {
+        frag.appendChild(span("t-cmd", tok)); expectCmd = true; afterGit = false; continue;
+      }
+      if (tok === "{" || tok === "}") {
+        frag.appendChild(document.createTextNode(tok)); expectCmd = true; afterGit = false; continue;
+      }
+      if (tok.charAt(0) === "$") {
+        frag.appendChild(span("t-var", tok)); expectCmd = false; afterGit = false; continue;
+      }
+      if (KEYWORDS[tok] || KEYWORDS[tok.replace(/^[!(]+/, "")]) {
+        frag.appendChild(span("t-sub", tok)); expectCmd = false; afterGit = false; continue;
+      }
+      if (expectCmd && CMDS[tok]) {
+        frag.appendChild(span("t-cmd", tok));
+        afterGit = (tok === "git" || tok === "gh"); expectCmd = false; continue;
+      }
+      if (afterGit && tok.charAt(0) !== "-") {
+        frag.appendChild(span("t-sub", tok)); afterGit = false; expectCmd = false; continue;
+      }
+      expectCmd = false; afterGit = false;
+      if (tok.charAt(0) === '"' || tok.charAt(0) === "'")      frag.appendChild(span("t-str", tok));
+      else if (tok.charAt(0) === "-")                          frag.appendChild(span("t-flag", tok));
+      else if (REFS[tok] || /^HEAD~\d+$/.test(tok))            frag.appendChild(span("t-ref", tok));
+      else if (/^[A-Z][A-Z0-9_]{2,}$/.test(tok))               frag.appendChild(span("t-ph", tok));
+      else if (/(https?:\/\/|^[A-Za-z]:\\)/.test(tok))         frag.appendChild(urlRuns(tok));
+      else                                                     frag.appendChild(document.createTextNode(tok));
+    }
+  }
+
+  /* inside a URL, highlight only the parts you must replace */
+  function urlRuns(tok){
+    var f = document.createDocumentFragment();
+    tok.split(/(USERNAME|REPOSITORY)/).forEach(function(part){
+      if (part === "USERNAME" || part === "REPOSITORY") f.appendChild(span("t-ph", part));
+      else if (part) f.appendChild(span("t-str", part));
+    });
+    return f;
+  }
+
+  document.querySelectorAll(".snip pre").forEach(function(pre){
+    var raw = pre.textContent;
+    pre.dataset.raw = raw;
+    var frag = document.createDocumentFragment();
+    raw.split("\n").forEach(function(line, i){
+      if (i) frag.appendChild(document.createTextNode("\n"));
+      colourLine(line, frag);
+    });
+    pre.textContent = "";
+    pre.appendChild(frag);
+  });
+
+  /* colour the mono table cells too */
+  document.querySelectorAll("td.m").forEach(function(td){
+    var frag = document.createDocumentFragment();
+    colourLine(td.textContent, frag);
+    td.textContent = "";
+    td.appendChild(frag);
+  });
+
+  /* ---------- copy buttons ---------- */
+  function copyText(text){
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function(resolve, reject){
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed"; ta.style.top = "-1000px";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error("copy blocked"));
+    });
+  }
+
+  document.querySelectorAll(".snip").forEach(function(snip){
+    var pre = snip.querySelector("pre");
+    var lines = pre.dataset.raw.split("\n").length;
+    var isPaste = snip.classList.contains("paste");
+
+    var bar = document.createElement("div");
+    bar.className = "snip-top";
+    var tag = document.createElement("span");
+    tag.className = "tag";
+    var isFile = snip.dataset.kind === "file";
+    tag.textContent = isFile ? (snip.dataset.label || "what you see in the file")
+      : isPaste ? (lines > 1 ? "paste all " + lines + " lines" : "one-liner")
+      : (lines > 1 ? lines + " commands, one at a time" : "one command");
+    var btn = document.createElement("button");
+    btn.className = "copy"; btn.type = "button"; btn.textContent = "Copy";
+    if (isFile) btn.hidden = true;
+    btn.addEventListener("click", function(){
+      copyText(pre.dataset.raw).then(function(){
+        btn.textContent = "Copied"; btn.classList.add("done");
+      }).catch(function(){
+        btn.textContent = "Press Ctrl+C";
+        var r = document.createRange(); r.selectNodeContents(pre);
+        var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      });
+      setTimeout(function(){ btn.textContent = "Copy"; btn.classList.remove("done"); }, 1800);
+    });
+    bar.appendChild(tag); bar.appendChild(btn);
+    snip.insertBefore(bar, pre);
+  });
+
+  /* ---------- search ---------- */
+  var q = document.getElementById("q");
+  var empty = document.getElementById("empty");
+
+  document.addEventListener("keydown", function(e){
+    if (e.key === "/" && document.activeElement !== q) { e.preventDefault(); q.focus(); }
+    if (e.key === "Escape" && document.activeElement === q) { q.value = ""; filter(); q.blur(); }
+  });
+
+  /* every block that can be shown or hidden on its own */
+  var units = [];
+  secs.forEach(function(s){
+    var kids = Array.prototype.slice.call(s.children);
+    var group = null;
+    kids.forEach(function(el){
+      if (el.tagName === "H2") return;
+      if (el.tagName === "H3") { group = { els: [el], sec: s }; units.push(group); return; }
+      if (group) group.els.push(el);
+      else units.push({ els: [el], sec: s });
+    });
+    /* table rows are searched individually */
+    s.querySelectorAll("tbody tr, table tr").forEach(function(tr){
+      if (tr.querySelector("th")) return;
+      units.push({ els: [tr], sec: s, row: true });
+    });
+  });
+  units.forEach(function(u){ u.text = u.els.map(function(e){ return e.textContent; }).join(" ").toLowerCase(); });
+
+  function filter(){
+    var term = q.value.trim().toLowerCase();
+    var anyVisible = false;
+    if (!term) {
+      units.forEach(function(u){ u.els.forEach(function(e){ e.style.display = ""; }); });
+      secs.forEach(function(s){ s.style.display = ""; });
+      empty.style.display = "none";
+      return;
+    }
+    var hitsBySec = {};
+    units.forEach(function(u){
+      var hit = u.text.indexOf(term) > -1;
+      u.els.forEach(function(e){ e.style.display = hit ? "" : "none"; });
+      if (hit) { hitsBySec[u.sec.id] = true; anyVisible = true; }
+    });
+    secs.forEach(function(s){
+      var on = !!hitsBySec[s.id];
+      s.style.display = on ? "" : "none";
+      if (on) { /* a matching row must not hide its own table or heading */
+        s.querySelectorAll("h2.sec, .tw, table, tbody").forEach(function(e){ e.style.display = ""; });
+      }
+    });
+    empty.style.display = anyVisible ? "none" : "block";
+  }
+  q.addEventListener("input", filter);
+})();
+</script>

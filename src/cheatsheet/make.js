@@ -33,6 +33,7 @@ A(grid([1900, 3300, 4880], [
   ['Dark blue', 'Text, paths, and URLs', 'git commit -m "my message"'],
   ['Orange', 'YOU MUST REPLACE THIS', 'git remote add origin https://github.com/USERNAME/REPOSITORY.git'],
   ['Green', 'Branch and remote names', 'git push -u origin main'],
+  ['Teal', 'A PowerShell variable', 'notepad $PROFILE'],
 ], { mono: [2] }));
 
 A(SP(160));
@@ -50,15 +51,18 @@ A(P('These are the blocks you will use 95% of the time. Each one is self-contain
 
 A(H2('Save my work and upload it'));
 A(P('The everyday loop. Change the message in quotes to describe what you actually did.'));
-A(paste(['git add . && git commit -m "describe what I changed" && git push']));
-A(callout('note', 'The `&&` chain needs **PowerShell 7+**. Check with `$PSVersionTable.PSVersion`. On Windows PowerShell 5.1, replace every `&&` with `;` — but note that `;` runs the next command even if the previous one failed.'));
+A(paste(['git add .; git commit -m "describe what I changed"; git push']));
+A(H3('If you want it to stop when something fails'));
+A(P('`;` runs the next command no matter what. To make each step wait on the one before it — in any PowerShell version:'));
+A(paste(['git add . ; if ($?) { git commit -m "describe what I changed" } ; if ($?) { git push }']));
+A(callout('note', 'Commands are separated with `;`, which works in **every** version of PowerShell. If you have ever seen *"The token \'&&\' is not a valid statement separator in this version"*, that is Windows PowerShell 5.1 rejecting `&&` — `;` is the fix, and it is what this sheet uses throughout.'));
 
 A(H2('Get the latest version from GitHub'));
 A(paste(['git pull']));
 A(P('If you have local edits in progress, commit them first (block above), then pull.'));
 
 A(H2('What is going on right now?'));
-A(paste(['git status && git log --oneline -10']));
+A(paste(['git status; git log --oneline -10']));
 
 A(H2('Brand-new repository, start to finish'));
 A(P('Run this **inside your project folder**, after creating an empty repository on GitHub. Replace the URL.'));
@@ -73,7 +77,7 @@ A(paste([
 
 A(H2('Throw away everything I did locally and match GitHub'));
 A(callout('danger', 'This **permanently discards** your uncommitted work. Run `git status` first and be sure.'));
-A(paste(['git restore . && git pull']));
+A(paste(['git restore .; git pull']));
 
 A(H2('Copy an existing GitHub repository onto this PC'));
 A(paste([
@@ -186,7 +190,7 @@ A(code([
   'git push                                # send it to GitHub',
 ]));
 A(P('**Memory aid:**  add → commit → push'));
-A(paste(['git add . && git commit -m "describe what I changed" && git push']));
+A(paste(['git add .; git commit -m "describe what I changed"; git push']));
 
 A(H2('Staging only some files'));
 A(P('When you changed five things but only want to commit two of them:'));
@@ -209,19 +213,50 @@ A(H2('Commit often, push whenever'));
 A(P('A commit is a local save point and costs nothing — make them small and frequent. A push is a backup to GitHub. There is no penalty for pushing ten times a day.'));
 
 /* ============================ SYNC ============================ */
+A(H1('Turn the daily loop into one word'));
+A(P('If you type the same three commands every day, put them in your PowerShell profile and type one word instead. This works in Windows PowerShell 5.1 and in PowerShell 7.'));
+
+A(H2('Open your profile'));
+A(P('The profile is a script PowerShell runs every time it starts. This creates it if it does not exist, then opens it:'));
+A(paste([
+  'if (!(Test-Path $PROFILE)) { New-Item -ItemType File -Path $PROFILE -Force }',
+  'notepad $PROFILE',
+]));
+
+A(H2('Paste this at the bottom, then save and close'));
+A(paste([
+  'function gs { git status }',
+  'function gl { git log --oneline -10 }',
+  'function gp { git pull }',
+  '',
+  'function gacp {',
+  '    param([Parameter(Mandatory=$true)][string]$Message)',
+  '    git add .',
+  '    if ($?) { git commit -m $Message }',
+  '    if ($?) { git push }',
+  '}',
+]));
+A(P('Reload it — or just open a new terminal:'));
+A(code(['. $PROFILE']));
+
+A(H2('Your whole day is now'));
+A(paste(['gacp "describe what I changed"']));
+A(P('Plus `gs` for status, `gl` for recent commits, `gp` to pull. Add your own: the profile is only a script.'));
+A(callout('warning', 'If PowerShell refuses with *running scripts is disabled on this system*, run PowerShell **as Administrator** once and enter: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`'));
+
 A(H1('Updating from GitHub, and conflicts'));
 A(P('These five situations cover essentially every sync problem you will hit working solo across two machines.'));
 
 A(H2('Situation 1 — Normal update'));
 A(P('You changed files locally and want them on GitHub.'));
 A(code(['git status', 'git add .', 'git commit -m "describe what I changed"', 'git push']));
-A(paste(['git add . && git commit -m "describe what I changed" && git push']));
+A(paste(['git add .; git commit -m "describe what I changed"; git push']));
 
 A(H2('Situation 2 — Push rejected because GitHub has changes'));
 A(P('If GitHub has commits your PC does not have (you edited on the website, or from another machine), `git push` is rejected. The message says *"Updates were rejected because the remote contains work that you do not have locally."*'));
 A(P('Bring the GitHub changes down first, then push:'));
 A(code(['git pull', 'git push']));
-A(paste(['git pull && git push']));
+A(paste(['git pull; git push']));
 A(callout('note', 'This is not an error you caused. It is Git protecting the commits that are already on GitHub.'));
 
 A(H2('Situation 3 — The pull produced a merge conflict'));
@@ -249,7 +284,7 @@ A(P('**Memory aid:**  pull → resolve → add → commit → push'));
 A(H2('Situation 4 — Discard my local changes, take GitHub\'s version'));
 A(callout('danger', '`git restore .` throws away uncommitted edits to tracked files. They are not recoverable. Run `git status` first and read the list.'));
 A(code(['git status', 'git restore .', 'git pull']));
-A(paste(['git restore . && git pull']));
+A(paste(['git restore .; git pull']));
 
 A(H2('Situation 5 — Also delete untracked files'));
 A(P('`git restore .` does not touch files Git has never seen. To remove those as well:'));
@@ -274,7 +309,7 @@ A(grid([4400, 5680], [
   ['Undo all uncommitted edits', 'git restore .'],
   ['Unstage a file, keep the edits', 'git restore --staged path\\to\\file'],
   ['Fix the last commit message', 'git commit --amend -m "better message"'],
-  ['Add a forgotten file to the last commit', 'git add forgotten.txt && git commit --amend --no-edit'],
+  ['Add a forgotten file to the last commit', 'git add forgotten.txt; git commit --amend --no-edit'],
   ['Undo the last commit, keep the changes', 'git reset --soft HEAD~1'],
   ['Undo the last commit and its changes', 'git reset --hard HEAD~1'],
   ['Get one file back as GitHub has it', 'git checkout origin/main -- path\\to\\file'],
@@ -364,12 +399,17 @@ A(H2('Paths with spaces need quotes'));
 A(code(['cd "C:\\Users\\Me\\OneDrive\\My Projects\\Ephemeral"']));
 
 A(H2('Chaining commands'));
-A(grid([2200, 7880], [
-  ['Operator', 'Behaviour'],
-  ['&&', 'Run the next command **only if** the previous one succeeded. PowerShell 7+ only.'],
-  [';', 'Run the next command **regardless** of whether the previous one failed. Works everywhere.'],
+A(grid([2600, 7480], [
+  ['Separator', 'Behaviour'],
+  [';', 'Runs the next command **whatever happened** to the one before it. Works in every version — this sheet uses it.'],
+  ['if ($?) { }', 'Runs the next command **only if** the last one succeeded. Works in every version. `$?` is "did that work?"'],
+  ['&&', '"Only if it worked", short form. **PowerShell 7 and later only.** Windows PowerShell 5.1 rejects it with *the token \'&&\' is not a valid statement separator in this version*.'],
 ], { mono: [0] }));
-A(P('Check your version with `$PSVersionTable.PSVersion`. If it starts with 5, use `;` — or install PowerShell 7 with `winget install --id Microsoft.PowerShell -e`.'));
+A(P('Find out which one you are running:'));
+A(code(['$PSVersionTable.PSVersion']));
+A(P('A **5** in the Major column means Windows PowerShell 5.1 — the version that ships with Windows, and the one VS Code usually opens by default. Everything in this sheet works there. If you want `&&` and a much better terminal, PowerShell 7 installs alongside it without replacing it:'));
+A(code(['winget install --id Microsoft.PowerShell -e']));
+A(callout('tip', 'In VS Code, pick which one new terminals use: **Ctrl+Shift+P** ▸ *Terminal: Select Default Profile*.'));
 
 A(H2('Quoting commit messages'));
 A(P('Single quotes are safest in PowerShell, because double quotes let `$` expand into variables:'));
@@ -457,16 +497,16 @@ A(H1('One-page summary'));
 A(P('Print this page and stick it next to the monitor.'));
 
 A(H2('Normal day'));
-A(paste(['git add . && git commit -m "what I changed" && git push']));
+A(paste(['git add .; git commit -m "what I changed"; git push']));
 A(H2('GitHub changed too'));
-A(paste(['git pull', '# fix conflicts if it asks', 'git add . && git commit -m "resolve merge conflict" && git push']));
+A(paste(['git pull', '# fix conflicts if it asks', 'git add .; git commit -m "resolve merge conflict"; git push']));
 A(H2('Bin my local changes'));
-A(paste(['git restore . && git pull']));
+A(paste(['git restore .; git pull']));
 A(H2('Bin local changes and untracked files'));
-A(paste(['git clean -fdn        # PREVIEW - read the list', 'git restore . && git clean -fd && git pull']));
+A(paste(['git clean -fdn        # PREVIEW - read the list', 'git restore .; git clean -fd; git pull']));
 A(H2('New repository'));
 A(paste([
-  'git init && git add . && git commit -m "initial commit" && git branch -M main',
+  'git init; git add .; git commit -m "initial commit"; git branch -M main',
   'git remote add origin https://github.com/USERNAME/REPOSITORY.git',
   'git push -u origin main',
 ]));

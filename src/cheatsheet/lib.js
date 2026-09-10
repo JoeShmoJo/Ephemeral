@@ -18,12 +18,14 @@ const C = {
   h1:    '0B4F6C',
   h2:    '0969DA',
   h3:    '424A53',
+  var:   '0F6E7A', // $PROFILE, $?  - PowerShell variables
 };
 
 const PAGE_W = 10080; // 12240 letter - 2 x 1080 margins
 
 const GIT_CONSTS = new Set(['HEAD','ORIG_HEAD','FETCH_HEAD','main','master','origin','.']);
-const CMD_WORDS  = new Set(['git','cd','ls','dir','code','notepad','ni','New-Item','Set-Content','Get-Content','gh','clear','cls','winget','md','mkdir','ssh-keygen','echo']);
+const CMD_WORDS  = new Set(['git','cd','ls','dir','code','notepad','ni','New-Item','Set-Content','Get-Content','Test-Path','Set-ExecutionPolicy','gh','clear','cls','winget','md','mkdir','ssh-keygen','echo','gacp','gs','gl','gp']);
+const PS_KEYWORDS = new Set(['if','else','elseif','function','param','foreach','while','return','not','Mandatory']);
 
 // ---------- syntax colouring ----------
 function tokenize(line) {
@@ -43,6 +45,18 @@ function tokenize(line) {
     if (tok === '&&' || tok === ';' || tok === '|' || tok === '||') {
       out.push({ text: tok, color: C.cmd, bold: true });
       expectCmd = true; prevWasGit = false; continue;
+    }
+    if (tok === '{' || tok === '}' || tok === '{' ) {            // a new statement starts inside a block
+      out.push({ text: tok, color: C.plain });
+      expectCmd = true; prevWasGit = false; continue;
+    }
+    if (tok.startsWith('$')) {
+      out.push({ text: tok, color: C.var });
+      expectCmd = false; prevWasGit = false; continue;
+    }
+    if (PS_KEYWORDS.has(tok) || PS_KEYWORDS.has(tok.replace(/^[!(]+/, ''))) {
+      out.push({ text: tok, color: C.sub, bold: true });
+      expectCmd = false; prevWasGit = false; continue;
     }
     if (tok.startsWith('#')) {                      // trailing comment
       const rest = line.slice(m.index);
