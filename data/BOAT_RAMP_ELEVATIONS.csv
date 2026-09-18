@@ -1,0 +1,38 @@
+Project,Ramp_Name,Min_Operable_Elev_ft,Datum,Corps_Managed,Closed_Months,Notes
+"HILLS CREEK LAKE NEAR OAKRIDGE, OR",Bingham Landing,1520,NGVD29,N,,
+"HILLS CREEK LAKE NEAR OAKRIDGE, OR",CT Beach Park,1507,NGVD29,N,,
+"HILLS CREEK LAKE NEAR OAKRIDGE, OR",Packard Creek,1441,NGVD29,N,,"below the 1448 ft minimum conservation pool"
+"LOOKOUT POINT LAKE NEAR LOWELL, OR",Meridian Park,911,NGVD29,Y,,
+"LOOKOUT POINT LAKE NEAR LOWELL, OR",Hampton Landing,911,NGVD29,N,,
+"LOOKOUT POINT LAKE NEAR LOWELL, OR",Black Canyon,900,NGVD29,N,,
+"LOOKOUT POINT LAKE NEAR LOWELL, OR",Signal Point,821,NGVD29,Y,,"doc: mud needs cleaning off below 825 - see SENSITIVITY in boat_ramp_days.py"
+"DEXTER LAKE AT DEXTER, OR",Lowell Park,684,NGVD29,N,,
+"DEXTER LAKE AT DEXTER, OR",Dexter Park,684,NGVD29,N,,
+"FALL CREEK LAKE NEAR LOWELL, OR",Cascara Campground,822,NGVD29,N,,
+"FALL CREEK LAKE NEAR LOWELL, OR",Winberry Creek Park,803,NGVD29,N,,
+"FALL CREEK LAKE NEAR LOWELL, OR",North Shore Ramp,689,NGVD29,N,"10,11,12,1,2,3","seasonally closed October-March; also below the 728 ft minimum conservation pool"
+"FERN RIDGE LAKE NEAR ELMIRA, OR",Perkins Peninsula,368,NGVD29,N,,
+"FERN RIDGE LAKE NEAR ELMIRA, OR",Fern Ridge Shores,367,NGVD29,N,,"doc: revise to 370 per 2020 marina manager feedback - see SENSITIVITY"
+"FERN RIDGE LAKE NEAR ELMIRA, OR",Richardson Park,365,NGVD29,N,,
+"FERN RIDGE LAKE NEAR ELMIRA, OR",Orchard Point Park,364,NGVD29,N,,
+"COUGAR LAKE NEAR RAINBOW, OR",Slide Creek,1635,NGVD29,N,,
+"COUGAR LAKE NEAR RAINBOW, OR",Echo Park,1635,NGVD29,N,,
+"BLUE RIVER LAKE NEAR BLUE RIVER, OR",Lookout Boat Launch,1330,NGVD29,N,,
+"BLUE RIVER LAKE NEAR BLUE RIVER, OR",Saddle Dam,1295,NGVD29,N,,
+"DORENA LAKE NEAR COTTAGE GROVE, OR",Harms Park,820,NGVD29,Y,,"doc: pavement ends at 820 but boats can still launch lower"
+"DORENA LAKE NEAR COTTAGE GROVE, OR",Baker Bay Marina,820,NGVD29,N,,
+"DORENA LAKE NEAR COTTAGE GROVE, OR",Baker Bay,765,NGVD29,N,,"below the 770.5 ft minimum conservation pool"
+"COTTAGE GROVE LAKE NR COTTAGE GROVE, OR",Wilson Creek,779,NGVD29,Y,,"doc: should close at 781 ft given eroded condition - see SENSITIVITY"
+"COTTAGE GROVE LAKE NR COTTAGE GROVE, OR",Lakeside Park,745,NGVD29,Y,,"doc note reads 'mud below 450' which is not a Cottage Grove elevation - treated as a typo and ignored"
+"GREEN PETER LAKE NEAR FOSTER, OR",Whitcomb Creek,970,NGVD29,N,,
+"GREEN PETER LAKE NEAR FOSTER, OR",Thistle Creek,919,NGVD29,N,,"below the 922 ft minimum conservation pool"
+"FOSTER LAKE AT FOSTER, OR",Calkins Park,631,NGVD29,N,,
+"FOSTER LAKE AT FOSTER, OR",Gedney Creek,619,NGVD29,N,,
+"FOSTER LAKE AT FOSTER, OR",Sunnyside,613,NGVD29,N,,"at the 613 ft minimum conservation pool"
+"DETROIT LAKE NEAR DETROIT, OR",State Park Boat Ramp D,1556,NGVD29,N,,
+"DETROIT LAKE NEAR DETROIT, OR",Kanes Marina,1546,NGVD29,N,,
+"DETROIT LAKE NEAR DETROIT, OR",Hoover,1543,NGVD29,N,,
+"DETROIT LAKE NEAR DETROIT, OR",South Shore,1542,NGVD29,N,,
+"DETROIT LAKE NEAR DETROIT, OR",Cove Creek,1541,NGVD29,N,,
+"DETROIT LAKE NEAR DETROIT, OR",State Park Boat Ramp G,1530,NGVD29,N,,
+"DETROIT LAKE NEAR DETROIT, OR",Mongold,1450,NGVD29,N,,"at the 1450 ft minimum conservation pool"
