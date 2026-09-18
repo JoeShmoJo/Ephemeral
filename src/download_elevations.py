@@ -35,7 +35,20 @@ import tempfile
 
 import pandas as pd
 import dataretrieval
-from dataretrieval import Configuration, waterdata
+from dataretrieval import waterdata
+
+# dataretrieval grew a Configuration/configure() API in 1.3.0. Before that -
+# 1.2.0 still has waterdata, so the rest of this script runs fine on it - the
+# key is passed by setting API_USGS_PAT, which utils._default_headers turns
+# into the X-Api-Key header. Import the new API if it is there and fall back to
+# the environment if it is not, rather than pinning a version this script does
+# not otherwise need.
+try:
+    from dataretrieval import Configuration
+    HAVE_CONFIGURE = True
+except ImportError:
+    Configuration = None
+    HAVE_CONFIGURE = False
 
 import ssl
 import certifi
@@ -164,6 +177,16 @@ def check_api_key(key):
     if os.path.isfile(config):
         print("[INFO] Using the API key in %s." % config)
         return
+    if not HAVE_CONFIGURE:
+        # On 1.2.0 the token only raises the rate limit; requests without one
+        # still succeed. Worth saying, so a warning here is not mistaken for
+        # the reason a download failed.
+        print(
+            "\n[INFO] No USGS API key found, and this dataretrieval (%s) uses "
+            "the key\n       only to raise the rate limit. The download should "
+            "still work.\n" % getattr(dataretrieval, "__version__", "unknown")
+        )
+        return
     print(
         "\n[WARNING] No USGS API key found. Looked at:\n"
         "            %s\n"
@@ -233,14 +256,64 @@ def download_pool(site, name, parameter_cd):
 
 
 def download_all(elev_dict):
-    """The download loop. Called inside the configure block when there is a key."""
-    if api_key:
+    """The download loop, one pool at a time. A pool that fails is recorded and
+    the rest carry on - one dead gauge should not cost the other twelve."""
+    collected = []
+    failed = []
+
+    for _, row in elev_dict.iterrows():
+        site = str(row["Download_Key"])
+        name = project_name(row["ResSimPath"])
+        try:
+            frame = download_pool(site, name, PARAMETER_CD)
+            if frame is None:
+                print("   %-42s empty on %s, retrying %s"
+                      % (name, PARAMETER_CD, FALLBACK_PARAMETER_CD))
+                frame = download_pool(site, name, FALLBACK_PARAMETER_CD)
+            if frame is None:
+                print("   %-42s NO DATA" % name)
+                failed.append(site)
+                continue
+            collected.append(frame)
+            print("   %-42s %5d days  %s to %s"
+                  % (name, len(frame),
+                     frame["date"].min().date(), frame["date"].max().date()))
+        except Exception as exc:
+            print("   %-42s FAILED: %s" % (name, exc))
+            failed.append(site)
+
+    return collected, failed
+
+
+def main():
+    api_key = read_api_key()
+    check_api_key(api_key)
+
+    elev_dict = pd.read_csv(resolve_path(ELEV_DICT_PATH),
+                            dtype={"Download_Key": str})
+    print("downloading %s to %s for %d pools\n"
+          % (START_DATE, END_DATE, len(elev_dict)))
+
+    if api_key and HAVE_CONFIGURE:
         # configure() is the library's highest-precedence source and is a
         # context manager, so the whole loop runs inside it. It also keeps the
         # key out of os.environ, where it would be visible to anything else in
         # the process.
         with dataretrieval.configure(Configuration(api_key=api_key)):
             collected, failed = download_all(elev_dict)
+    elif api_key:
+        # Pre-1.3.0 route: utils._default_headers reads API_USGS_PAT and sends
+        # it as X-Api-Key. Restored afterwards so an interactive session that
+        # runs this twice does not leave a key behind in its environment.
+        previous = os.environ.get("API_USGS_PAT")
+        os.environ["API_USGS_PAT"] = api_key
+        try:
+            collected, failed = download_all(elev_dict)
+        finally:
+            if previous is None:
+                os.environ.pop("API_USGS_PAT", None)
+            else:
+                os.environ["API_USGS_PAT"] = previous
     else:
         collected, failed = download_all(elev_dict)
 
