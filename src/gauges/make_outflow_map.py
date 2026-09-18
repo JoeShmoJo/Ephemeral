@@ -50,9 +50,9 @@ from shapely.geometry import Point
 # ----------------------------------------------------------------------------
 # Settings
 # ----------------------------------------------------------------------------
-SOURCE_TABLE = os.path.join("..", "data", "WIL_OUTFLOW_CANDIDATES.csv")
-OUT_PNG = os.path.join("..", "out", "outflow_gauge_map.png")
-CACHE_DIR = "mapdata_outflow"
+SOURCE_TABLE = os.path.join("data", "gauges", "WIL_OUTFLOW_CANDIDATES.csv")
+OUT_PNG = os.path.join("out", "gauges", "outflow_gauge_map.png")
+CACHE_DIR = os.path.join("cache", "nldi")
 DPI = 300
 FIGSIZE = (11.0, 13.0)
 
@@ -156,13 +156,37 @@ print("[INFO] Using CA bundle: %s" % os.environ["REQUESTS_CA_BUNDLE"])
 # ----------------------------------------------------------------------------
 # Fetch helpers
 # ----------------------------------------------------------------------------
+def repo_root():
+    """Recognise the repository root by its contents, not by a fixed "..".
+
+    These scripts live in src/<workflow>/, so counting directory levels breaks
+    the moment one moves.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    while True:
+        if all(os.path.isdir(os.path.join(here, d)) for d in ("data", "src")):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            raise SystemExit("Cannot find the repository root above %s"
+                             % os.path.dirname(os.path.abspath(__file__)))
+        here = parent
+
+
+def resolve_path(path):
+    if os.path.isabs(path):
+        return path
+    return os.path.normpath(os.path.join(repo_root(), path))
+
+
 def cache_path(name):
-    return os.path.join(CACHE_DIR, name)
+    return resolve_path(os.path.join(CACHE_DIR, name))
 
 
 def ensure_cache_dir():
-    if not os.path.isdir(CACHE_DIR):
-        os.makedirs(CACHE_DIR)
+    directory = resolve_path(CACHE_DIR)
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
 
 
 def http_get(url, params=None):
@@ -354,7 +378,7 @@ def add_north_arrow(ax):
 
 def main():
     table = pd.read_csv(
-        SOURCE_TABLE, dtype={"Forebay_Site": str, "Outflow_Site": str}
+        resolve_path(SOURCE_TABLE), dtype={"Forebay_Site": str, "Outflow_Site": str}
     )
     print("mapping %d dam/gauge pairs\n" % len(table))
 
@@ -483,10 +507,10 @@ def main():
     ax.set_xticks([])
     ax.set_yticks([])
 
-    out_dir = os.path.dirname(OUT_PNG)
+    out_dir = os.path.dirname(resolve_path(OUT_PNG))
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir)
-    figure.savefig(OUT_PNG, dpi=DPI, bbox_inches="tight")
+    figure.savefig(resolve_path(OUT_PNG), dpi=DPI, bbox_inches="tight")
     print("\nwrote %s" % OUT_PNG)
 
 

@@ -52,11 +52,11 @@ import requests
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
-ELEV_DICT_PATH = os.path.join("..", "data", "WIL_ELEV_DICT.csv")
-CANDIDATES_PATH = os.path.join("..", "data", "WIL_OUTFLOW_CANDIDATES.csv")
-REVIEW_OUT = os.path.join("..", "data", "WIL_OUTFLOW_REVIEW.csv")
-DICT_OUT = os.path.join("..", "data", "WIL_OUTFLOW_DICT.csv")
-CACHE_DIR = "mapdata_outflow"
+ELEV_DICT_PATH = os.path.join("data", "WIL_ELEV_DICT.csv")
+CANDIDATES_PATH = os.path.join("data", "gauges", "WIL_OUTFLOW_CANDIDATES.csv")
+REVIEW_OUT = os.path.join("out", "gauges", "WIL_OUTFLOW_REVIEW.csv")
+DICT_OUT = os.path.join("data", "gauges", "WIL_OUTFLOW_DICT.csv")
+CACHE_DIR = os.path.join("cache", "nldi")
 
 # The window the outflow record has to cover. A candidate that does not span
 # this is reported but not silently accepted.
@@ -86,9 +86,33 @@ SHARED_TAILWATER = {
 # ---------------------------------------------------------------------------
 # Fetch helpers
 # ---------------------------------------------------------------------------
+def repo_root():
+    """Recognise the repository root by its contents, not by a fixed "..".
+
+    These scripts live in src/<workflow>/, so counting directory levels breaks
+    the moment one moves.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    while True:
+        if all(os.path.isdir(os.path.join(here, d)) for d in ("data", "src")):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            raise SystemExit("Cannot find the repository root above %s"
+                             % os.path.dirname(os.path.abspath(__file__)))
+        here = parent
+
+
+def resolve_path(path):
+    if os.path.isabs(path):
+        return path
+    return os.path.normpath(os.path.join(repo_root(), path))
+
+
 def ensure_cache_dir():
-    if not os.path.isdir(CACHE_DIR):
-        os.makedirs(CACHE_DIR)
+    directory = resolve_path(CACHE_DIR)
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
 
 
 def http_get(url, params=None):
@@ -121,7 +145,7 @@ def nldi_get(path, params=None):
 
 def downstream_sites(site):
     """NWIS sites on the downstream mainstem below `site`, nearest first."""
-    cache = os.path.join(CACHE_DIR, "dm_%s.json" % site)
+    cache = cache_path("dm_%s.json" % site)
     if os.path.isfile(cache):
         with open(cache, "r") as handle:
             data = json.load(handle)
@@ -235,9 +259,9 @@ def covers_window(begin, end):
 # Resolution
 # ---------------------------------------------------------------------------
 def resolve():
-    elev = pd.read_csv(ELEV_DICT_PATH, dtype={"Download_Key": str})
+    elev = pd.read_csv(resolve_path(ELEV_DICT_PATH), dtype={"Download_Key": str})
     candidates = pd.read_csv(
-        CANDIDATES_PATH, dtype={"Forebay_Site": str, "Outflow_Site": str}
+        resolve_path(CANDIDATES_PATH), dtype={"Forebay_Site": str, "Outflow_Site": str}
     )
     expected = dict(
         zip(candidates["Forebay_Site"], candidates["Outflow_Site"])
@@ -333,11 +357,12 @@ def build_dict(chosen):
 if __name__ == "__main__":
     chosen, review = resolve()
 
-    review.to_csv(REVIEW_OUT, index=False)
+    os.makedirs(os.path.dirname(resolve_path(REVIEW_OUT)), exist_ok=True)
+    review.to_csv(resolve_path(REVIEW_OUT), index=False)
     print("\nwrote %s (%d candidate rows)" % (REVIEW_OUT, len(review)))
 
     dictionary = build_dict(chosen)
-    dictionary.to_csv(DICT_OUT, index=False)
+    dictionary.to_csv(resolve_path(DICT_OUT), index=False)
     print("wrote %s (%d outflow records)" % (DICT_OUT, len(dictionary)))
     print("\nReview the disagreements above before concatenating this with "
           "WIL_ELEV_DICT.csv.")

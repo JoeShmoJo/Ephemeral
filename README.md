@@ -1,23 +1,57 @@
-# JYTHON
+# Ephemeral
 
-Scratch repository, plus the Git and pull-request reference sheets kept in `out/`.
+Willamette Valley Project analysis scripts, plus the Git and pull-request
+reference sheets.
 
 ## Layout
 
-| Folder | Holds |
+Each workflow owns a folder under `src/`, `data/` and `out/`. Inputs shared by
+more than one workflow stay at the root of `data/`.
+
+| Path | Holds |
 |---|---|
-| `data/` | Input data |
-| `ref/` | Reference material |
-| `src/` | Source, including the cheat sheet generators |
-| `out/` | Generated output, including the cheat sheets |
+| `src/boat_ramps/` | Pool elevation download and the boat ramp day analysis |
+| `src/gauges/` | Outflow gauge resolution and the basin map |
+| `src/wil_div/` | Willamette diversion check |
+| `src/DP_DL_28Aug2026.py` | Damages Prevented download (USGS + CWMS, writes DSS) |
+| `data/` | `WIL_ELEV_DICT.csv` and `RuleCurves.csv` - shared by several workflows |
+| `data/<workflow>/` | Inputs used by one workflow only |
+| `out/<workflow>/` | Generated figures and tables |
+| `cache/` | USGS and NLDI responses, reused between runs. Not in git |
+| `ref/` | Reference material, including the Cowlitz map script the basin map derives from |
 
-## Cheat sheets
+## Boat ramp days
 
-| File | Covers |
-|---|---|
-| `out/Git-GitHub-PowerShell-Cheat-Sheet.docx` | Git from PowerShell on Windows |
-| `out/git-cheatsheet.html` | The same, in a browser, with copy buttons |
-| `out/GitHub-Pull-Requests-VSCode-Cheat-Sheet.docx` | Pull requests in VS Code |
-| `out/github-pr-vscode.html` | The same, in a browser |
+```powershell
+cd src\boat_ramps ; python download_elevations.py ; if ($?) { python boat_ramp_days.py }
+```
 
-To rebuild the documents after editing them, see `src/cheatsheet/README.md`.
+`download_elevations.py` pulls ten years of daily pool elevation for the
+thirteen projects. Every response is cached under `cache/usgs/`, so a rerun
+costs nothing against the USGS request budget and a run interrupted by the rate
+limit resumes where it stopped.
+
+`boat_ramp_days.py` counts a ramp for each day the pool is at or above that
+ramp's minimum operable elevation, so five usable ramps for a 30-day month is
+150 ramp days. It reports that against **rule-curve potential** - the days the
+rule curve says the pool should have been above the sill - rather than against
+every day in the season, so a project is not charged for the months its own
+drawdown schedule puts the pool below a ramp.
+
+Dexter and Big Cliff are excluded: they are re-regulating pools with no rule
+curve, and Dexter's ramps sit below its minimum pool.
+
+## Outflow gauges
+
+```powershell
+cd src\gauges ; python find_outflow_gauges.py ; if ($?) { python make_outflow_map.py }
+```
+
+## Requirements
+
+`pandas`, `dataretrieval` (1.2.0 or newer), and for the map `geopandas`,
+`contextily`, `matplotlib`, `shapely`.
+
+The USGS key goes in `data/usgs_api_key.txt`, which is gitignored. On
+dataretrieval 1.2.0 it only raises the request rate limit; downloads work
+without one.

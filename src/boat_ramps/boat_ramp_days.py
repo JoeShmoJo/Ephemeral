@@ -56,13 +56,38 @@ from matplotlib.lines import Line2D
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
-ELEV_DAILY = os.path.join("..", "out", "wil_elev_daily.csv")
-RAMPS_CSV = os.path.join("..", "data", "BOAT_RAMP_ELEVATIONS.csv")
+ELEV_DAILY = os.path.join("out", "boat_ramps", "wil_elev_daily.csv")
+RAMPS_CSV = os.path.join("data", "boat_ramps", "BOAT_RAMP_ELEVATIONS.csv")
+RULE_CURVES_CSV = os.path.join("data", "RuleCurves.csv")
 
-BOX_PNG = os.path.join("..", "out", "boat_ramp_days_box.png")
-DURATION_PNG = os.path.join("..", "out", "boat_ramp_duration.png")
-SUMMARY_CSV = os.path.join("..", "out", "boat_ramp_days_summary.csv")
-BY_YEAR_CSV = os.path.join("..", "out", "boat_ramp_days_by_year.csv")
+BOX_PNG = os.path.join("out", "boat_ramps", "boat_ramp_days_box.png")
+DURATION_PNG = os.path.join("out", "boat_ramps", "boat_ramp_duration.png")
+SUMMARY_CSV = os.path.join("out", "boat_ramps", "boat_ramp_days_summary.csv")
+BY_YEAR_CSV = os.path.join("out", "boat_ramps", "boat_ramp_days_by_year.csv")
+
+# Pools with no rule curve and no ramps worth counting. Dexter and Big Cliff
+# are re-regulating pools held in a narrow band; Dexter's two ramps sit below
+# its minimum pool, so it scored a meaningless 100%.
+EXCLUDE_PROJECTS = {
+    "DEXTER LAKE AT DEXTER, OR",
+    "BIG CLIFF LAKE NEAR NIAGARA, OR",
+}
+
+# RuleCurves.csv names projects by their short name; the elevation record uses
+# the full gauge name. This maps one to the other.
+RULE_CURVE_COLUMNS = {
+    "GREEN PETER LAKE NEAR FOSTER, OR": "GREEN PETER",
+    "FOSTER LAKE AT FOSTER, OR": "FOSTER",
+    "DETROIT LAKE NEAR DETROIT, OR": "DETROIT",
+    "LOOKOUT POINT LAKE NEAR LOWELL, OR": "LOOKOUT POINT",
+    "HILLS CREEK LAKE NEAR OAKRIDGE, OR": "HILLS CREEK",
+    "FALL CREEK LAKE NEAR LOWELL, OR": "FALL CREEK",
+    "COUGAR LAKE NEAR RAINBOW, OR": "COUGAR",
+    "BLUE RIVER LAKE NEAR BLUE RIVER, OR": "BLUE RIVER",
+    "FERN RIDGE LAKE NEAR ELMIRA, OR": "FERN RIDGE",
+    "DORENA LAKE NEAR COTTAGE GROVE, OR": "DORENA",
+    "COTTAGE GROVE LAKE NR COTTAGE GROVE, OR": "COTTAGE GROVE",
+}
 
 # Recreation season, inclusive, as (month, day).
 SEASON_START = (2, 1)
@@ -128,6 +153,53 @@ def season_length(year):
     return (end - start).days + 1
 
 
+def repo_root():
+    """Recognise the repository root by its contents, not by a fixed ".."."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    while True:
+        if all(os.path.isdir(os.path.join(here, d)) for d in ("data", "src")):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            raise SystemExit("Cannot find the repository root above %s"
+                             % os.path.dirname(os.path.abspath(__file__)))
+        here = parent
+
+
+def resolve_path(path):
+    if os.path.isabs(path):
+        return path
+    return os.path.normpath(os.path.join(repo_root(), path))
+
+
+def load_rule_curves():
+    """
+    The generic-year rule curve for each pool, indexed by (month, day).
+
+    The file carries one year of dates stamped 1900, so the year is dropped and
+    each value is looked up by calendar day. 29 February is not in it; a leap
+    day borrows 28 February, which is what the curve is doing at that point in
+    the refill anyway.
+    """
+    frame = pd.read_csv(resolve_path(RULE_CURVES_CSV), encoding="utf-8-sig")
+    dates = pd.to_datetime(frame[frame.columns[0]], format="%d%b%Y")
+    frame = frame.drop(columns=[frame.columns[0]])
+    frame.index = pd.MultiIndex.from_arrays(
+        [dates.dt.month, dates.dt.day], names=["month", "day"]
+    )
+    return frame
+
+
+def rule_curve_for(curves, project, months, days):
+    """The rule curve elevation for each day of one pool's season."""
+    column = RULE_CURVE_COLUMNS.get(project)
+    if column is None or column not in curves.columns:
+        return None
+    series = curves[column]
+    keys = [(m, 28 if (m == 2 and d == 29) else d) for m, d in zip(months, days)]
+    return series.reindex(keys).to_numpy()
+
+
 def season_open_days(year, closed_months):
     """Days in the season that fall outside a ramp's closed months."""
     days = pd.date_range(
@@ -139,14 +211,14 @@ def season_open_days(year, closed_months):
 
 
 def load_ramps():
-    if not os.path.isfile(RAMPS_CSV):
+    if not os.path.isfile(resolve_path(RAMPS_CSV)):
         sys.exit(
             "Missing %s.\n"
             "Copy BOAT_RAMP_ELEVATIONS_TEMPLATE.csv to that name and fill in "
             "one row per ramp from the project drawings." % RAMPS_CSV
         )
 
-    ramps = pd.read_csv(RAMPS_CSV)
+    ramps = pd.read_csv(resolve_path(RAMPS_CSV))
     required = {"Project", "Ramp_Name", "Min_Operable_Elev_ft", "Datum"}
     missing = required - set(ramps.columns)
     if missing:
@@ -197,10 +269,26 @@ def load_ramps():
     return ramps
 
 
-def compute(elev, ramps):
-    """Ramp days per project per year, plus the potential for each."""
+def compute(elev, ramps, curves):
+    """
+    Ramp days per project per year, against a rule-curve potential.
+
+    The denominator is the question this answers. Counting every season day as
+    a day the ramp could have been open charges a project for the months its
+    own rule curve puts the pool below the sill - Detroit's Ramp D at 1556 ft
+    is not meant to be in the water in February, and scoring it as a miss says
+    more about the drawdown schedule than about how the pool was run.
+
+    So potential counts only the days the rule curve is at or above the ramp,
+    and the ratio reads as: of the days this ramp was SUPPOSED to be usable,
+    how many was it? That can exceed 100% when the pool is held above the rule
+    curve, which is real and is left uncapped.
+    """
     rows = []
     for project, pool in elev.groupby("project"):
+        if project in EXCLUDE_PROJECTS:
+            continue
+
         project_ramps = ramps[ramps["Project"].str.strip().str.upper()
                               == project.strip().upper()]
         if project_ramps.empty:
@@ -212,7 +300,12 @@ def compute(elev, ramps):
         for year, season in pool.groupby(pool["date"].dt.year):
             elevations = season["elev_ft"].to_numpy()
             months = season["date"].dt.month.to_numpy()
-            open_days_in_season = season_length(int(year))
+            days = season["date"].dt.day.to_numpy()
+
+            target = rule_curve_for(curves, project, months, days)
+            if target is None:
+                print("   *** no rule curve for %s - skipped" % project)
+                break
 
             ramp_days = 0
             potential = 0
@@ -223,14 +316,10 @@ def compute(elev, ramps):
                     if not closed
                     else ~np.isin(months, list(closed))
                 )
-                ramp_days += int(
-                    ((elevations >= ramp["Min_Operable_Elev_ft"]) & open_mask).sum()
-                )
-                potential += (
-                    open_days_in_season
-                    if not closed
-                    else int(season_open_days(int(year), closed))
-                )
+                sill = ramp["Min_Operable_Elev_ft"]
+                ramp_days += int(((elevations >= sill) & open_mask).sum())
+                # The rule curve says when it SHOULD have been usable.
+                potential += int(((target >= sill) & open_mask).sum())
 
             rows.append(
                 {
@@ -248,11 +337,14 @@ def compute(elev, ramps):
                  "Check that the Project names agree.")
 
     by_year = pd.DataFrame(rows)
-    by_year["pct_of_potential"] = (
-        100.0 * by_year["ramp_days"] / by_year["potential"]
+    # A pool whose rule curve never reaches its lowest ramp has no potential at
+    # all; reporting 0/0 as 0% would read as a failure rather than as a ramp
+    # the schedule never intends to float.
+    by_year["pct_of_potential"] = np.where(
+        by_year["potential"] > 0,
+        100.0 * by_year["ramp_days"] / by_year["potential"].replace(0, np.nan),
+        np.nan,
     )
-    # A year missing days cannot be compared to a complete one; flag rather
-    # than drop, so a short record is visible instead of quietly deflating.
     by_year["complete"] = (
         by_year["days_observed"] >= by_year["year"].map(season_length) - 5
     )
@@ -337,9 +429,20 @@ def box_figure(by_year, system):
     top.set_ylim(0, by_year["ramp_days"].max() * 1.08)
 
     draw(bottom, "pct_of_potential",
-         "The same seasons as a share of what the ramps could have delivered",
-         "% of potential ramp days", show_labels=True)
-    bottom.set_ylim(0, min(100.0, by_year["pct_of_potential"].max() * 1.12))
+         "The same seasons against what the rule curve says they should have been",
+         "% of rule-curve potential", show_labels=True)
+    # Uncapped: a pool held above its rule curve genuinely delivers more ramp
+    # days than the schedule calls for, and clipping that at 100 would hide it.
+    top_pct = float(np.nanmax(by_year["pct_of_potential"]))
+    bottom.set_ylim(0, max(105.0, top_pct * 1.08))
+    bottom.axhline(100, color=C_INK_SOFT, linewidth=1.0,
+                   linestyle=(0, (4, 3)), zorder=2)
+    bottom.annotate("what the rule curve calls for",
+                    xy=(len(order) + 0.5, 100), xytext=(-3, 4),
+                    textcoords="offset points", ha="right", fontsize=7.5,
+                    color=C_INK_SOFT,
+                    path_effects=[pe.withStroke(linewidth=2.4,
+                                                foreground="#fcfcfb")])
 
     years = "%d-%d" % (by_year["year"].min(), by_year["year"].max())
     add_header(
@@ -352,7 +455,8 @@ def box_figure(by_year, system):
            system["pct_of_potential"].median()),
         header_inches=1.30,
     )
-    figure.savefig(BOX_PNG, dpi=DPI, bbox_inches="tight",
+    os.makedirs(os.path.dirname(resolve_path(BOX_PNG)), exist_ok=True)
+    figure.savefig(resolve_path(BOX_PNG), dpi=DPI, bbox_inches="tight",
                    facecolor="#fcfcfb")
     print("wrote %s" % BOX_PNG)
 
@@ -434,24 +538,28 @@ def duration_figure(elev, ramps):
         "share of the season the pool stayed at or above it.",
         header_inches=header_in,
     )
-    figure.savefig(DURATION_PNG, dpi=DPI, bbox_inches="tight",
+    figure.savefig(resolve_path(DURATION_PNG), dpi=DPI, bbox_inches="tight",
                    facecolor="#fcfcfb")
     print("wrote %s" % DURATION_PNG)
 
 
 # ---------------------------------------------------------------------------
 def main():
-    if not os.path.isfile(ELEV_DAILY):
-        sys.exit("Missing %s - run download_elevations.py first." % ELEV_DAILY)
+    if not os.path.isfile(resolve_path(ELEV_DAILY)):
+        sys.exit("Missing %s - run download_elevations.py first."
+                 % resolve_path(ELEV_DAILY))
 
-    elev = pd.read_csv(ELEV_DAILY, parse_dates=["date"])
+    elev = pd.read_csv(resolve_path(ELEV_DAILY), parse_dates=["date"])
     ramps = load_ramps()
+    curves = load_rule_curves()
 
     elev = elev[in_season(elev["date"]).to_numpy()].copy()
-    print("%d in-season daily elevations across %d pools\n"
-          % (len(elev), elev["project"].nunique()))
+    elev = elev[~elev["project"].isin(EXCLUDE_PROJECTS)].copy()
+    print("%d in-season daily elevations across %d pools "
+          "(%d excluded: no rule curve)\n"
+          % (len(elev), elev["project"].nunique(), len(EXCLUDE_PROJECTS)))
 
-    by_year = compute(elev, ramps)
+    by_year = compute(elev, ramps, curves)
 
     system = (
         by_year.groupby("year")
@@ -464,7 +572,8 @@ def main():
     )
     system["project"] = "SYSTEM TOTAL"
 
-    by_year.to_csv(BY_YEAR_CSV, index=False)
+    os.makedirs(os.path.dirname(resolve_path(BY_YEAR_CSV)), exist_ok=True)
+    by_year.to_csv(resolve_path(BY_YEAR_CSV), index=False)
     print("wrote %s" % BY_YEAR_CSV)
 
     def stats(frame, label):
@@ -485,7 +594,7 @@ def main():
         [stats(frame, name) for name, frame in by_year.groupby("project")]
         + [stats(system, "SYSTEM TOTAL")]
     ).sort_values("median_ramp_days", ascending=False)
-    summary.to_csv(SUMMARY_CSV, index=False)
+    summary.to_csv(resolve_path(SUMMARY_CSV), index=False)
     print("wrote %s\n" % SUMMARY_CSV)
     print(summary.to_string(index=False))
 

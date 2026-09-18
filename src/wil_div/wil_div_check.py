@@ -60,23 +60,24 @@ except NameError:
 
 
 def _find_data_dir():
-    """Locate data/ whether we are run from src/, the repo root, or a notebook."""
-    for base in (HERE, os.path.join(HERE, ".."), os.getcwd(),
-                 os.path.join(os.getcwd(), "..")):
+    """Locate data/ from anywhere - this script now lives in src/wil_div/."""
+    for base in (HERE, os.path.join(HERE, ".."), os.path.join(HERE, "..", ".."),
+                 os.getcwd(), os.path.join(os.getcwd(), ".."),
+                 os.path.join(os.getcwd(), "..", "..")):
         candidate = os.path.normpath(os.path.join(base, "data"))
         if os.path.exists(os.path.join(candidate, "WIL_ELEV_DICT.csv")):
             return candidate
-    return os.path.normpath(os.path.join(HERE, "..", "data"))
+    return os.path.normpath(os.path.join(HERE, "..", "..", "data"))
 
 
 DATA_DIR = _find_data_dir()
 REPO_DIR = os.path.dirname(DATA_DIR)
-OUT_DIR = os.path.join(REPO_DIR, "out")
-CACHE_DIR = os.path.join(DATA_DIR, "cache")
+OUT_DIR = os.path.join(REPO_DIR, "out", "wil_div")
+CACHE_DIR = os.path.join(REPO_DIR, "cache", "usgs")
 
 ELEV_DICT_PATH = os.path.join(DATA_DIR, "WIL_ELEV_DICT.csv")
-STOR_RATINGS_PATH = os.path.join(DATA_DIR, "STOR_RATINGS.xlsx")
-DEMAND_PATH = os.path.join(DATA_DIR, "ALT_WithdrawalDemand.csv")
+STOR_RATINGS_PATH = os.path.join(DATA_DIR, "wil_div", "STOR_RATINGS.xlsx")
+DEMAND_PATH = os.path.join(DATA_DIR, "wil_div", "ALT_WithdrawalDemand.csv")
 RULE_CURVE_PATH = os.path.join(DATA_DIR, "RuleCurves.csv")
 
 # USGS now requires a personal access token for api.waterdata.usgs.gov.
@@ -931,10 +932,10 @@ def main(argv=None) -> int:
         global DATA_DIR, CACHE_DIR, ELEV_DICT_PATH, STOR_RATINGS_PATH
         global DEMAND_PATH, RULE_CURVE_PATH
         DATA_DIR = os.path.abspath(args.data_dir)
-        CACHE_DIR = os.path.join(DATA_DIR, "cache")
+        CACHE_DIR = os.path.join(REPO_DIR, "cache", "usgs")
         ELEV_DICT_PATH = os.path.join(DATA_DIR, "WIL_ELEV_DICT.csv")
-        STOR_RATINGS_PATH = os.path.join(DATA_DIR, "STOR_RATINGS.xlsx")
-        DEMAND_PATH = os.path.join(DATA_DIR, "ALT_WithdrawalDemand.csv")
+        STOR_RATINGS_PATH = os.path.join(DATA_DIR, "wil_div", "STOR_RATINGS.xlsx")
+        DEMAND_PATH = os.path.join(DATA_DIR, "wil_div", "ALT_WithdrawalDemand.csv")
         RULE_CURVE_PATH = os.path.join(DATA_DIR, "RuleCurves.csv")
         print(f"[INFO] Reading inputs from {DATA_DIR}")
 
