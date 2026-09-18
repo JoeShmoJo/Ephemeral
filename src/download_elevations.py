@@ -24,6 +24,20 @@ DAILY, NOT INSTANTANEOUS
     with the daily mean statistic is both the reliable choice and the correct
     one.
 
+WHICH ENDPOINT
+    The daily endpoint is one request per pool and reaches back decades, so it
+    is tried first. It returns nothing for parameter 62614 at these lake sites,
+    which is why the first version of this script downloaded thirteen empty
+    frames. The continuous endpoint does carry them - it is what
+    DP_DL_28Aug2026.py uses - so the script falls through to it and resamples
+    to a daily mean. Each run prints which route answered for each pool.
+
+    Continuous costs far more requests: the service caps one call at three
+    years, so ten years is four calls per pool, each paged. If the run stops
+    partway with a rate-limit error, the budget is the reason - lower
+    MAX_CONTINUOUS_YEARS to shrink each page set, or narrow START/END_DATE and
+    run it in two passes.
+
 OUTPUT
     out/wil_elev_daily.csv    date, project, site_no, elev_ft
     out/wil_elev_summary.csv  per-pool record span, day count and gaps
@@ -85,6 +99,11 @@ END_DATE = "2025-12-31"
 PARAMETER_CD = "62614"
 FALLBACK_PARAMETER_CD = "62615"
 STATISTIC_ID = "00003"  # daily mean
+
+# get_continuous refuses more than three years per call, so a ten-year window
+# has to be chunked. Three keeps the number of calls - and the API request
+# budget this burns - as low as the service allows.
+MAX_CONTINUOUS_YEARS = 3
 
 
 # --- SSL Certificate Setup ---------------------------------------------------
@@ -205,23 +224,19 @@ def project_name(res_sim_path):
     return parts[0] if parts else str(res_sim_path)
 
 
-def download_pool(site, name, parameter_cd):
-    monitoring_location_id = (
-        site if str(site).upper().startswith("USGS-") else "USGS-%s" % site
+def _time_range(start, end):
+    return "%sT00:00:00Z/%sT23:59:59Z" % (
+        pd.Timestamp(start).strftime("%Y-%m-%d"),
+        pd.Timestamp(end).strftime("%Y-%m-%d"),
     )
-    time_range = "%sT00:00:00Z/%sT23:59:59Z" % (START_DATE, END_DATE)
 
-    data, _ = waterdata.get_daily(
-        monitoring_location_id=monitoring_location_id,
-        parameter_code=parameter_cd,
-        statistic_id=STATISTIC_ID,
-        time=time_range,
-        skip_geometry=True,
-    )
-    if data is None or data.empty:
+
+def _to_series(frame, site):
+    """The value column out of a waterdata frame, indexed by time."""
+    if frame is None or frame.empty:
         return None
 
-    frame = data.copy()
+    frame = frame.copy()
     frame["time"] = pd.to_datetime(frame["time"])
     frame = frame.set_index("time").sort_index()
 
@@ -242,17 +257,101 @@ def download_pool(site, name, parameter_cd):
     series[series == -902] = pd.NA
     series[series == -901] = pd.NA
     series = series.dropna()
-    if series.empty:
-        return None
+    return None if series.empty else series
 
-    return pd.DataFrame(
-        {
-            "date": series.index.normalize(),
-            "project": name,
-            "site_no": str(site),
-            "elev_ft": series.to_numpy(),
-        }
+
+def fetch_daily(location, parameter_cd, statistic_id):
+    """One call to the daily endpoint. Returns None when it has nothing."""
+    data, _ = waterdata.get_daily(
+        monitoring_location_id=location,
+        parameter_code=parameter_cd,
+        statistic_id=statistic_id,
+        time=_time_range(START_DATE, END_DATE),
+        skip_geometry=True,
     )
+    return data
+
+
+def fetch_continuous(location, parameter_cd):
+    """
+    The continuous endpoint, in chunks, resampled to a daily mean.
+
+    This is the route DP_DL_28Aug2026.py uses and the one known to carry 62614
+    for these pools. It costs far more requests than the daily endpoint - hence
+    only reaching for it when daily comes back empty - and the service caps a
+    single call at three years, so the window is walked in chunks.
+    """
+    pieces = []
+    start = pd.Timestamp(START_DATE)
+    final = pd.Timestamp(END_DATE)
+
+    while start <= final:
+        stop = min(
+            start + pd.DateOffset(years=MAX_CONTINUOUS_YEARS) - pd.Timedelta(days=1),
+            final,
+        )
+        data, _ = waterdata.get_continuous(
+            monitoring_location_id=location,
+            parameter_code=parameter_cd,
+            time=_time_range(start, stop),
+        )
+        if data is not None and not data.empty:
+            pieces.append(data)
+        start = stop + pd.Timedelta(days=1)
+
+    if not pieces:
+        return None
+    return pd.concat(pieces, ignore_index=True)
+
+
+def download_pool(site, name, parameter_cd):
+    """
+    Daily elevation for one pool, by whichever route actually returns data.
+
+    Tried in order, cheapest first:
+      1. the daily endpoint, filtered to the daily mean
+      2. the daily endpoint with no statistic filter, in case this pool
+         publishes its daily value under some other statistic
+      3. the continuous endpoint, chunked and resampled to a daily mean
+
+    Returns (frame, route) so the caller can report which one answered - if a
+    pool silently falls through to the expensive route every run, that is worth
+    seeing rather than discovering in the request budget.
+    """
+    location = (
+        site if str(site).upper().startswith("USGS-") else "USGS-%s" % site
+    )
+
+    attempts = (
+        ("daily", lambda: fetch_daily(location, parameter_cd, STATISTIC_ID)),
+        ("daily/any-stat", lambda: fetch_daily(location, parameter_cd, None)),
+        ("continuous", lambda: fetch_continuous(location, parameter_cd)),
+    )
+
+    for route, call in attempts:
+        series = _to_series(call(), site)
+        if series is None:
+            continue
+        if route == "continuous":
+            # Sub-daily values collapse to one number per day, matching what
+            # the daily endpoint would have returned.
+            series = series.resample("D").mean().dropna()
+        else:
+            series.index = series.index.normalize()
+
+        return (
+            pd.DataFrame(
+                {
+                    "date": series.index,
+                    "project": name,
+                    "site_no": str(site),
+                    "elev_ft": series.to_numpy(),
+                }
+            ),
+            route,
+        )
+
+    return None, None
 
 
 def download_all(elev_dict):
@@ -265,19 +364,20 @@ def download_all(elev_dict):
         site = str(row["Download_Key"])
         name = project_name(row["ResSimPath"])
         try:
-            frame = download_pool(site, name, PARAMETER_CD)
+            frame, route = download_pool(site, name, PARAMETER_CD)
             if frame is None:
                 print("   %-42s empty on %s, retrying %s"
                       % (name, PARAMETER_CD, FALLBACK_PARAMETER_CD))
-                frame = download_pool(site, name, FALLBACK_PARAMETER_CD)
+                frame, route = download_pool(site, name, FALLBACK_PARAMETER_CD)
             if frame is None:
-                print("   %-42s NO DATA" % name)
+                print("   %-42s NO DATA on either parameter code" % name)
                 failed.append(site)
                 continue
             collected.append(frame)
-            print("   %-42s %5d days  %s to %s"
+            print("   %-42s %5d days  %s to %s  via %s"
                   % (name, len(frame),
-                     frame["date"].min().date(), frame["date"].max().date()))
+                     frame["date"].min().date(), frame["date"].max().date(),
+                     route))
         except Exception as exc:
             print("   %-42s FAILED: %s" % (name, exc))
             failed.append(site)
