@@ -45,6 +45,17 @@ against each ramp sill, and `boat_ramp_system.png` - the system on one tile,
 with headline numbers, the spread across seasons, and how many of the 35 ramps
 were floating on a given day against how many the rule curve called for.
 
+`plot_rule_curves.py` writes `out/boat_ramps/rule_curve_check.html` - pool
+elevation against the rule curve, one interactive panel per reservoir, with
+ramp sills drawn in. That is the audit: it shows whether the curve sits in the
+pool's real operating band, and where the pool ran above or below it. Days with
+no observation are drawn as breaks rather than joined, and the script prints
+how many each pool is missing.
+
+```powershell
+cd src\boat_ramps ; python plot_rule_curves.py
+```
+
 A project can read above 100%. That is not an error: the rule curve is a
 schedule, and a pool held above it floats ramps the schedule never promised.
 `surplus_days` and `deficit_days` in the summary say which way it went - Fern
