@@ -3,3 +3,4 @@ __pycache__/
 sandbox/
 data/cache/
 usgs_api_key.txt
+mapdata_outflow/
