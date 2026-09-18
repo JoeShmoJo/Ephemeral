@@ -69,7 +69,25 @@ SEASON_START = (2, 1)
 SEASON_END = (12, 15)
 
 # The datum the pool record is on. Every ramp row must declare this same datum.
+#
+# The 2021 ramp memo does not state a datum anywhere. NGVD29 is inferred from
+# its maximum conservation pool figures, which match the USACE NGVD29 values
+# for all twelve projects (Detroit 1563.5, Lookout Point 926, Fern Ridge
+# 373.5, and so on). That inference is worth confirming before the numbers go
+# anywhere official: NAVD88 would shift every ramp about 3.5 ft.
 EXPECTED_DATUM = "NGVD29"
+
+# Four ramps carry an advisory elevation in the memo that differs from the
+# figure in its left-hand column - an eroded ramp that "should close" higher, a
+# marina manager's correction, a sill that needs dredging before it is usable.
+# Run with SENSITIVITY = True to count ramp days against the advisory numbers
+# instead, which is the pessimistic reading of the same memo.
+SENSITIVITY = False
+SENSITIVITY_ELEVATIONS = {
+    ("LOOKOUT POINT LAKE NEAR LOWELL, OR", "Signal Point"): 825.0,
+    ("FERN RIDGE LAKE NEAR ELMIRA, OR", "Fern Ridge Shores"): 370.0,
+    ("COTTAGE GROVE LAKE NR COTTAGE GROVE, OR", "Wilson Creek"): 781.0,
+}
 
 DPI = 200
 
@@ -110,6 +128,16 @@ def season_length(year):
     return (end - start).days + 1
 
 
+def season_open_days(year, closed_months):
+    """Days in the season that fall outside a ramp's closed months."""
+    days = pd.date_range(
+        pd.Timestamp(year=year, month=SEASON_START[0], day=SEASON_START[1]),
+        pd.Timestamp(year=year, month=SEASON_END[0], day=SEASON_END[1]),
+        freq="D",
+    )
+    return int((~days.month.isin(list(closed_months))).sum())
+
+
 def load_ramps():
     if not os.path.isfile(RAMPS_CSV):
         sys.exit(
@@ -136,6 +164,26 @@ def load_ramps():
             "usable." % (int(blank.sum()), ramps.loc[blank, "Project"].iloc[0])
         )
 
+    if SENSITIVITY:
+        for (project, ramp_name), elevation in SENSITIVITY_ELEVATIONS.items():
+            hit = ((ramps["Project"].str.strip() == project)
+                   & (ramps["Ramp_Name"].str.strip() == ramp_name))
+            if hit.any():
+                ramps.loc[hit, "Min_Operable_Elev_ft"] = elevation
+        print("SENSITIVITY on: using the memo's advisory elevations for "
+              "%d ramp(s)\n" % len(SENSITIVITY_ELEVATIONS))
+
+    # A ramp closed by policy for part of the season should not be counted
+    # against those days in either the numerator or the denominator, so the
+    # closed months come out of its potential too.
+    if "Closed_Months" not in ramps.columns:
+        ramps["Closed_Months"] = ""
+    ramps["closed_set"] = ramps["Closed_Months"].apply(
+        lambda v: set()
+        if pd.isna(v) or not str(v).strip()
+        else {int(x) for x in str(v).split(",") if str(x).strip()}
+    )
+
     datums = set(ramps["Datum"].astype(str).str.strip().str.upper())
     unexpected = datums - {EXPECTED_DATUM.upper()}
     if unexpected:
@@ -159,21 +207,39 @@ def compute(elev, ramps):
             print("   *** no ramps listed for %s - skipped" % project)
             continue
 
-        sills = project_ramps["Min_Operable_Elev_ft"].to_numpy()
         pool = pool.sort_values("date")
 
         for year, season in pool.groupby(pool["date"].dt.year):
             elevations = season["elev_ft"].to_numpy()
-            # Outer comparison: one row per day, one column per ramp.
-            usable = elevations[:, None] >= sills[None, :]
+            months = season["date"].dt.month.to_numpy()
+            open_days_in_season = season_length(int(year))
+
+            ramp_days = 0
+            potential = 0
+            for _, ramp in project_ramps.iterrows():
+                closed = ramp["closed_set"]
+                open_mask = (
+                    np.ones(len(months), dtype=bool)
+                    if not closed
+                    else ~np.isin(months, list(closed))
+                )
+                ramp_days += int(
+                    ((elevations >= ramp["Min_Operable_Elev_ft"]) & open_mask).sum()
+                )
+                potential += (
+                    open_days_in_season
+                    if not closed
+                    else int(season_open_days(int(year), closed))
+                )
+
             rows.append(
                 {
                     "project": project,
                     "year": int(year),
-                    "ramps": len(sills),
+                    "ramps": len(project_ramps),
                     "days_observed": len(elevations),
-                    "ramp_days": int(usable.sum()),
-                    "potential": len(sills) * season_length(int(year)),
+                    "ramp_days": ramp_days,
+                    "potential": potential,
                 }
             )
 

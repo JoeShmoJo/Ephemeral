@@ -32,8 +32,11 @@ OUTPUT
 
 import os
 import json
+import ssl
+import tempfile
 import warnings
 
+import certifi
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -115,6 +118,39 @@ WGS84 = "EPSG:4326"
 WEBM = "EPSG:3857"
 
 matplotlib.rcParams["font.family"] = "DejaVu Sans"
+
+
+# ----------------------------------------------------------------------------
+# SSL setup - the same combined CA bundle DP_DL_28Aug2026.py builds.
+#
+# Without this the flowlines and markers draw but the basemap comes back blank,
+# because contextily's tile fetch fails TLS against the corporate inspection
+# cert while NLDI, already cached to disk, does not. A white backdrop looks
+# like a styling choice rather than a failure, which is exactly why it is worth
+# fixing here rather than explaining in a caption.
+# ----------------------------------------------------------------------------
+def build_ca_bundle():
+    pem_path = os.path.join(tempfile.gettempdir(), "corp_plus_certifi.pem")
+    if os.path.exists(pem_path):
+        return pem_path
+    try:
+        with open(certifi.where(), "rb") as src, open(pem_path, "wb") as dst:
+            dst.write(src.read())
+            try:
+                for cert_tuple in ssl.enum_certificates("ROOT"):
+                    dst.write(
+                        ssl.DER_cert_to_PEM_cert(cert_tuple[0]).encode("ascii")
+                    )
+            except AttributeError:
+                pass
+        return pem_path
+    except Exception as exc:
+        print("[WARNING] Failed to build combined CA bundle: %s" % exc)
+        return certifi.where()
+
+
+os.environ["REQUESTS_CA_BUNDLE"] = build_ca_bundle()
+print("[INFO] Using CA bundle: %s" % os.environ["REQUESTS_CA_BUNDLE"])
 
 
 # ----------------------------------------------------------------------------
@@ -415,6 +451,12 @@ def main():
     except Exception as exc:
         print("\n   *** BASEMAP NOT DRAWN: %s" % exc)
         print("   The vectors are still correct; only the backdrop is missing.")
+        print("   If this is a TLS or proxy error, the tile host is being "
+              "blocked or inspected. Try:")
+        print("     set HTTPS_PROXY=<your proxy>   (PowerShell: "
+              "$env:HTTPS_PROXY='<your proxy>')")
+        print("   contextily caches tiles, so a single successful run is "
+              "enough for every later one.")
 
     if SHOW_SCALEBAR:
         add_scalebar(ax)
