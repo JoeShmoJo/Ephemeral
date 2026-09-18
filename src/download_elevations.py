@@ -34,7 +34,8 @@ import sys
 import tempfile
 
 import pandas as pd
-from dataretrieval import waterdata
+import dataretrieval
+from dataretrieval import Configuration, waterdata
 
 import ssl
 import certifi
@@ -42,6 +43,20 @@ import certifi
 # ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
+# Where the USGS Water Data API key lives. Relative paths resolve from this
+# script's own folder, not the shell's working directory, so running it from
+# anywhere behaves the same. An absolute Windows path works too:
+#     API_KEY_FILE = r"C:\Projects\A_REPOSITORIES\Ephemeral\data\usgs_api_key.txt"
+#
+# The file holds the key and nothing else. `api_key = <key>` is also accepted,
+# so a line copied out of config.toml does not have to be edited down.
+#
+# It stays OUT of version control - .gitignore already carries
+# usgs_api_key.txt, which git matches at any depth, so data/ is covered.
+# Setting API_USGS_PAT in the environment instead also works and this file
+# then does not need to exist.
+API_KEY_FILE = os.path.join("..", "data", "usgs_api_key.txt")
+
 ELEV_DICT_PATH = os.path.join("..", "data", "WIL_ELEV_DICT.csv")
 DAILY_OUT = os.path.join("..", "out", "wil_elev_daily.csv")
 SUMMARY_OUT = os.path.join("..", "out", "wil_elev_summary.csv")
@@ -97,27 +112,67 @@ print("[INFO] Using CA bundle: %s" % bundle_path)
 # --- End SSL Setup -----------------------------------------------------------
 
 
-def check_api_key():
+def resolve_path(path):
+    """Anchor a relative path to this script's folder rather than the cwd."""
+    if os.path.isabs(path):
+        return path
+    return os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
+    )
+
+
+def read_api_key():
     """
-    The modernized Water Data API is key-authenticated. dataretrieval resolves
-    the key from a configure() block, then API_USGS_PAT, then
-    ~/.dataretrieval/config.toml. Failing here with a readable message beats
-    thirteen identical HTTP errors further down.
+    The key, from API_KEY_FILE if it is there.
+
+    Returns None when there is no file, which is not an error: the key may be
+    coming from API_USGS_PAT or ~/.dataretrieval/config.toml instead, and
+    dataretrieval resolves those on its own.
     """
+    path = resolve_path(API_KEY_FILE)
+    if not os.path.isfile(path):
+        return None
+
+    with open(path, "r", encoding="utf-8-sig") as handle:
+        text = handle.read().strip()
+
+    if not text:
+        sys.exit("%s is empty." % path)
+
+    # Tolerate a line lifted straight out of config.toml, quotes and all.
+    if "=" in text.split("\n", 1)[0]:
+        text = text.split("=", 1)[1]
+    key = text.strip().strip("\"'").strip()
+
+    if not key:
+        sys.exit("%s holds no key once blanks and quotes are stripped." % path)
+
+    print("[INFO] API key read from %s" % path)
+    return key
+
+
+def check_api_key(key):
+    """Say where the key is coming from, or that there is not one, up front."""
+    if key:
+        return
     if os.environ.get("API_USGS_PAT"):
+        print("[INFO] Using the API key in API_USGS_PAT.")
         return
     config = os.path.join(
         os.path.expanduser("~"), ".dataretrieval", "config.toml"
     )
     if os.path.isfile(config):
+        print("[INFO] Using the API key in %s." % config)
         return
     print(
-        "\n[WARNING] No USGS API key found.\n"
-        "          Set API_USGS_PAT, or put api_key in %s.\n"
+        "\n[WARNING] No USGS API key found. Looked at:\n"
+        "            %s\n"
+        "            the API_USGS_PAT environment variable\n"
+        "            %s\n"
         "          `python -c \"import dataretrieval; "
         "dataretrieval.show_configuration()\"` reports what is in effect.\n"
         "          Continuing anyway in case a configure() block supplies it.\n"
-        % config
+        % (resolve_path(API_KEY_FILE), config)
     )
 
 
@@ -177,46 +232,27 @@ def download_pool(site, name, parameter_cd):
     )
 
 
-def main():
-    check_api_key()
-
-    elev_dict = pd.read_csv(ELEV_DICT_PATH, dtype={"Download_Key": str})
-    print("downloading %s to %s for %d pools\n"
-          % (START_DATE, END_DATE, len(elev_dict)))
-
-    collected = []
-    failed = []
-
-    for _, row in elev_dict.iterrows():
-        site = str(row["Download_Key"])
-        name = project_name(row["ResSimPath"])
-        try:
-            frame = download_pool(site, name, PARAMETER_CD)
-            if frame is None:
-                print("   %-42s empty on %s, retrying %s"
-                      % (name, PARAMETER_CD, FALLBACK_PARAMETER_CD))
-                frame = download_pool(site, name, FALLBACK_PARAMETER_CD)
-            if frame is None:
-                print("   %-42s NO DATA" % name)
-                failed.append(site)
-                continue
-            collected.append(frame)
-            print("   %-42s %5d days  %s to %s"
-                  % (name, len(frame),
-                     frame["date"].min().date(), frame["date"].max().date()))
-        except Exception as exc:
-            print("   %-42s FAILED: %s" % (name, exc))
-            failed.append(site)
+def download_all(elev_dict):
+    """The download loop. Called inside the configure block when there is a key."""
+    if api_key:
+        # configure() is the library's highest-precedence source and is a
+        # context manager, so the whole loop runs inside it. It also keeps the
+        # key out of os.environ, where it would be visible to anything else in
+        # the process.
+        with dataretrieval.configure(Configuration(api_key=api_key)):
+            collected, failed = download_all(elev_dict)
+    else:
+        collected, failed = download_all(elev_dict)
 
     if not collected:
         sys.exit("Nothing downloaded. Check the API key and the network.")
 
     daily = pd.concat(collected, ignore_index=True)
 
-    out_dir = os.path.dirname(DAILY_OUT)
+    out_dir = os.path.dirname(resolve_path(DAILY_OUT))
     if out_dir and not os.path.isdir(out_dir):
         os.makedirs(out_dir)
-    daily.to_csv(DAILY_OUT, index=False)
+    daily.to_csv(resolve_path(DAILY_OUT), index=False)
     print("\nwrote %s (%d rows)" % (DAILY_OUT, len(daily)))
 
     # A gap count is the difference between the calendar span and the days
@@ -231,7 +267,7 @@ def main():
         (summary["last_day"] - summary["first_day"]).dt.days + 1
     )
     summary["missing_days"] = summary["calendar_days"] - summary["days"]
-    summary.to_csv(SUMMARY_OUT, index=False)
+    summary.to_csv(resolve_path(SUMMARY_OUT), index=False)
     print("wrote %s" % SUMMARY_OUT)
 
     print("\n%s" % summary.to_string(index=False))
