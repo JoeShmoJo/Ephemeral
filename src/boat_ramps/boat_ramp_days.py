@@ -62,6 +62,7 @@ RULE_CURVES_CSV = os.path.join("data", "RuleCurves.csv")
 
 BOX_PNG = os.path.join("out", "boat_ramps", "boat_ramp_days_box.png")
 DURATION_PNG = os.path.join("out", "boat_ramps", "boat_ramp_duration.png")
+SYSTEM_PNG = os.path.join("out", "boat_ramps", "boat_ramp_system.png")
 SUMMARY_CSV = os.path.join("out", "boat_ramps", "boat_ramp_days_summary.csv")
 BY_YEAR_CSV = os.path.join("out", "boat_ramps", "boat_ramp_days_by_year.csv")
 
@@ -309,6 +310,8 @@ def compute(elev, ramps, curves):
 
             ramp_days = 0
             potential = 0
+            surplus = 0
+            deficit = 0
             for _, ramp in project_ramps.iterrows():
                 closed = ramp["closed_set"]
                 open_mask = (
@@ -317,9 +320,16 @@ def compute(elev, ramps, curves):
                     else ~np.isin(months, list(closed))
                 )
                 sill = ramp["Min_Operable_Elev_ft"]
-                ramp_days += int(((elevations >= sill) & open_mask).sum())
+                actual_ok = (elevations >= sill) & open_mask
+                curve_ok = (target >= sill) & open_mask
+                ramp_days += int(actual_ok.sum())
                 # The rule curve says when it SHOULD have been usable.
-                potential += int(((target >= sill) & open_mask).sum())
+                potential += int(curve_ok.sum())
+                # Where the two disagree is the whole story behind a number
+                # above or below 100%: surplus is a day the pool floated a ramp
+                # the curve had no intention of floating, deficit the reverse.
+                surplus += int((actual_ok & ~curve_ok).sum())
+                deficit += int((curve_ok & ~actual_ok).sum())
 
             rows.append(
                 {
@@ -329,6 +339,8 @@ def compute(elev, ramps, curves):
                     "days_observed": len(elevations),
                     "ramp_days": ramp_days,
                     "potential": potential,
+                    "surplus_days": surplus,
+                    "deficit_days": deficit,
                 }
             )
 
@@ -461,6 +473,179 @@ def box_figure(by_year, system):
     print("wrote %s" % BOX_PNG)
 
 
+
+def system_figure(by_year, system, elev, ramps, curves):
+    """
+    The system as one page: headline numbers, the spread across seasons, and
+    how many of the 35 ramps were actually floating on a given day.
+
+    The per-project figures cannot carry this. A system total is an order of
+    magnitude larger than any one project, so putting it on the same axis
+    either flattens the projects or needs a second scale - and the duration
+    curve that matters here counts RAMPS ACROSS THE SYSTEM, which is a
+    different quantity from any one pool's elevation.
+    """
+    figure = plt.figure(figsize=(13.0, 6.4))
+    grid = figure.add_gridspec(
+        2, 3, height_ratios=[0.22, 1.0], hspace=0.18, wspace=0.26
+    )
+
+    # --- headline tiles ----------------------------------------------------
+    median_days = int(system["ramp_days"].median())
+    median_pct = float(system["pct_of_potential"].median())
+    best = system.loc[system["ramp_days"].idxmax()]
+    worst = system.loc[system["ramp_days"].idxmin()]
+
+    tiles = [
+        ("%s" % format(median_days, ","), "ramp days in a median season",
+         "%d ramps across %d projects" % (int(system["ramps"].iloc[0]),
+                                          by_year["project"].nunique())),
+        ("%.0f%%" % median_pct, "of what the rule curve calls for",
+         "100% would be exactly on schedule"),
+        ("%s / %s" % (format(int(worst["ramp_days"]), ","),
+                      format(int(best["ramp_days"]), ",")),
+         "worst and best season",
+         "%d and %d" % (int(worst["year"]), int(best["year"]))),
+    ]
+    for column, (value, label, note) in enumerate(tiles):
+        ax = figure.add_subplot(grid[0, column])
+        ax.set_axis_off()
+        ax.text(0, 0.80, value, fontsize=26, fontweight="bold",
+                color=C_SERIES, ha="left", va="center")
+        ax.text(0, 0.40, label, fontsize=10.5, color=C_INK, ha="left",
+                va="center")
+        ax.text(0, 0.16, note, fontsize=8.5, color=C_INK_SOFT, ha="left",
+                va="center")
+
+    # --- spread across seasons --------------------------------------------
+    ax = figure.add_subplot(grid[1, 0])
+    parts = ax.boxplot(
+        [system["ramp_days"].to_numpy()], patch_artist=True, widths=0.45,
+        medianprops=dict(color="white", linewidth=1.8),
+        flierprops=dict(marker="o", markersize=4, markerfacecolor=C_ACCENT,
+                        markeredgecolor="white", markeredgewidth=0.6),
+        whiskerprops=dict(color=C_INK_SOFT, linewidth=1.1),
+        capprops=dict(color=C_INK_SOFT, linewidth=1.1),
+    )
+    for patch in parts["boxes"]:
+        patch.set_facecolor(C_SERIES)
+        patch.set_alpha(0.88)
+        patch.set_edgecolor("white")
+        patch.set_linewidth(1.2)
+    # Each season as a dot beside the box: ten points is few enough that the
+    # box alone hides more than it summarises.
+    jitter = np.random.default_rng(0).normal(1.42, 0.035, len(system))
+    ax.plot(jitter, system["ramp_days"], "o", markersize=4.5,
+            color=C_INK_SOFT, alpha=0.65, markeredgecolor="white",
+            markeredgewidth=0.5)
+    ax.set_xlim(0.55, 1.75)
+    ax.set_xticks([])
+    ax.set_ylim(0, system["ramp_days"].max() * 1.1)
+    ax.set_ylabel("system ramp days per season", fontsize=9.5)
+    ax.set_title("Spread across %d seasons" % len(system), fontsize=11,
+                 fontweight="bold", loc="left", color=C_INK, pad=8)
+    style(ax)
+
+    # --- how many ramps were floating, day by day --------------------------
+    ax = figure.add_subplot(grid[1, 1:])
+    actual, expected = system_ramp_counts(elev, ramps, curves)
+
+    for series, colour, label in (
+        (actual, C_SERIES, "Ramps actually usable"),
+        (expected, C_ACCENT, "Ramps the rule curve calls for"),
+    ):
+        values = np.sort(series)[::-1]
+        exceedance = np.arange(1, len(values) + 1) / len(values) * 100.0
+        ax.plot(exceedance, values, color=colour, linewidth=2.0, zorder=4,
+                label=label)
+
+    ax.set_xlim(0, 100)
+    ax.set_ylim(0, len(ramps) + 1)
+    ax.set_xlabel("% of season equalled or exceeded", fontsize=9)
+    ax.set_ylabel("ramps usable system-wide", fontsize=9.5)
+    ax.set_title("Ramps floating on a given day, all seasons pooled",
+                 fontsize=11, fontweight="bold", loc="left", color=C_INK,
+                 pad=8)
+    ax.legend(loc="upper right", frameon=False, fontsize=9)
+    style(ax)
+
+    # Where the blue curve sits above the orange one, the system floated more
+    # ramps than the schedule called for - which is what a number over 100%
+    # means, said as a picture.
+    gap = float(np.mean(actual) - np.mean(expected))
+    wording = (
+        "%.1f more ramps than the curve calls for" % gap if gap >= 0.05
+        else "%.1f fewer ramps than the curve calls for" % abs(gap)
+        if gap <= -0.05
+        else "the same number of ramps the curve calls for"
+    )
+    ax.annotate(
+        "On an average day the system floated %s." % wording,
+        xy=(0.5, 0.045), xycoords="axes fraction", ha="center", fontsize=8.5,
+        color=C_INK_SOFT,
+    )
+
+    years = "%d-%d" % (by_year["year"].min(), by_year["year"].max())
+    add_header(
+        figure,
+        "Willamette Valley Project boat ramps - system summary, %s" % years,
+        "Season 01 Feb - 15 Dec.  Dexter and Big Cliff excluded: "
+        "re-regulating pools with no rule curve.",
+        header_inches=1.05,
+    )
+    figure.savefig(resolve_path(SYSTEM_PNG), dpi=DPI, bbox_inches="tight",
+                   facecolor="#fcfcfb")
+    print("wrote %s" % SYSTEM_PNG)
+
+
+def system_ramp_counts(elev, ramps, curves):
+    """
+    Per calendar day: ramps usable system-wide, actual and per the rule curve.
+
+    Counted across every pool and season at once, so a day appears once per
+    season rather than being averaged into a single generic year - the spread
+    between wet and dry years is the point.
+    """
+    actual_by_day = {}
+    expected_by_day = {}
+
+    for project, pool in elev.groupby("project"):
+        project_ramps = ramps[ramps["Project"].str.strip().str.upper()
+                              == project.strip().upper()]
+        if project_ramps.empty:
+            continue
+
+        pool = pool.sort_values("date")
+        months = pool["date"].dt.month.to_numpy()
+        days = pool["date"].dt.day.to_numpy()
+        target = rule_curve_for(curves, project, months, days)
+        if target is None:
+            continue
+
+        elevations = pool["elev_ft"].to_numpy()
+        keys = pool["date"].to_numpy()
+
+        for _, ramp in project_ramps.iterrows():
+            closed = ramp["closed_set"]
+            open_mask = (
+                np.ones(len(months), dtype=bool)
+                if not closed
+                else ~np.isin(months, list(closed))
+            )
+            sill = ramp["Min_Operable_Elev_ft"]
+            for key, ok, want in zip(keys,
+                                     (elevations >= sill) & open_mask,
+                                     (target >= sill) & open_mask):
+                actual_by_day[key] = actual_by_day.get(key, 0) + int(ok)
+                expected_by_day[key] = expected_by_day.get(key, 0) + int(want)
+
+    shared = sorted(set(actual_by_day) & set(expected_by_day))
+    return (
+        np.array([actual_by_day[k] for k in shared]),
+        np.array([expected_by_day[k] for k in shared]),
+    )
+
+
 def duration_figure(elev, ramps):
     projects = sorted(elev["project"].unique())
     ncols = 4 if len(projects) > 6 else max(1, min(3, len(projects)))
@@ -564,7 +749,9 @@ def main():
     system = (
         by_year.groupby("year")
         .agg(ramps=("ramps", "sum"), ramp_days=("ramp_days", "sum"),
-             potential=("potential", "sum"))
+             potential=("potential", "sum"),
+             surplus_days=("surplus_days", "sum"),
+             deficit_days=("deficit_days", "sum"))
         .reset_index()
     )
     system["pct_of_potential"] = (
@@ -586,6 +773,8 @@ def main():
             "min_ramp_days": int(frame["ramp_days"].min()),
             "max_ramp_days": int(frame["ramp_days"].max()),
             "median_pct_of_potential": round(frame["pct_of_potential"].median(), 1),
+            "mean_surplus_days": round(frame["surplus_days"].mean(), 1),
+            "mean_deficit_days": round(frame["deficit_days"].mean(), 1),
             "incomplete_seasons": int((~frame["complete"]).sum())
             if "complete" in frame else 0,
         }
@@ -600,6 +789,7 @@ def main():
 
     box_figure(by_year, system)
     duration_figure(elev, ramps)
+    system_figure(by_year, system, elev, ramps, curves)
 
 
 if __name__ == "__main__":

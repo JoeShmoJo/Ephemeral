@@ -12,7 +12,6 @@ more than one workflow stay at the root of `data/`.
 |---|---|
 | `src/boat_ramps/` | Pool elevation download and the boat ramp day analysis |
 | `src/gauges/` | Outflow gauge resolution and the basin map |
-| `src/wil_div/` | Willamette diversion check |
 | `src/DP_DL_28Aug2026.py` | Damages Prevented download (USGS + CWMS, writes DSS) |
 | `data/` | `WIL_ELEV_DICT.csv` and `RuleCurves.csv` - shared by several workflows |
 | `data/<workflow>/` | Inputs used by one workflow only |
@@ -40,6 +39,17 @@ drawdown schedule puts the pool below a ramp.
 
 Dexter and Big Cliff are excluded: they are re-regulating pools with no rule
 curve, and Dexter's ramps sit below its minimum pool.
+
+Three figures come out of it: per-project boxes, per-project elevation duration
+against each ramp sill, and `boat_ramp_system.png` - the system on one tile,
+with headline numbers, the spread across seasons, and how many of the 35 ramps
+were floating on a given day against how many the rule curve called for.
+
+A project can read above 100%. That is not an error: the rule curve is a
+schedule, and a pool held above it floats ramps the schedule never promised.
+`surplus_days` and `deficit_days` in the summary say which way it went - Fern
+Ridge's curve drops to 353 ft in November while its lowest ramp is at 364, so
+a slow autumn drawdown shows up as surplus.
 
 ## Outflow gauges
 
