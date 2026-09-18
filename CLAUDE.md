@@ -8,10 +8,14 @@ works as `CONTRIBUTING.md` if a human needs it instead.
 
 ## The rule that matters
 
-**Nothing goes onto `main` except through a pull request that I merge myself.**
+**Nothing goes onto `main` except through a pull request.**
 
-No direct commits to `main`, no exceptions for "small" changes, no merging on my
-behalf. If a change is worth making, it is worth a branch and a diff I can read.
+No direct commits to `main`, no exceptions for "small" changes. If a change is
+worth making, it is worth a branch and a diff I can read afterwards.
+
+**Open the PR and merge it. Do not wait for me.** I read the diff after the
+fact, from the PR, which is why the PR still has to exist and its description
+still has to be honest. Do not ask "shall I merge?" — the answer is yes.
 
 ---
 
@@ -26,14 +30,17 @@ behalf. If a change is worth making, it is worth a branch and a diff I can read.
 3. **Push** the branch: `git push -u origin <branch-name>`.
 4. **Open a pull request** against `main`. Fill in the description properly —
    see below.
-5. **Stop there.** Tell me the PR is ready and what to look at. I review and
-   merge it in VS Code.
+5. **Merge it yourself**, squash, and say what landed and what to look at.
+   Squash-merging deletes the branch, so start the next change from a fresh
+   `main` (`git fetch --prune`, then branch again) rather than reusing the old
+   branch — its commits are dead history once squashed, and pushing them back
+   only causes conflicts.
 
 ### Never, without asking me first
 
-- Push or commit to `main`
-- Merge a pull request, or approve one
+- Push or commit **directly** to `main` — it goes through a PR, always
 - `git push --force`, or rewrite history that is already pushed
+  (force-pushing your own branch to drop dead squash-merged commits is fine)
 - Delete a branch I have not merged
 - `git reset --hard` or `git clean -fd` on work I have not committed
 - Anything outward-facing: creating repositories, changing settings, adding
@@ -45,8 +52,9 @@ Write them for me reading the PR cold in a week.
 
 - **Why, not what.** The diff already shows what changed.
 - **Say what you were unsure about.** If a decision could reasonably have gone
-  the other way, make it an explicit question I can answer in a review comment.
-  That is what the review is for.
+  the other way, say which way you went and why. It is merged by the time I
+  read it, so an open question is a thing for me to change next — not a gate.
+  Flag anything you could not test, and anything I should smoke-test myself.
 - **Warn me when the diff will not render.** Binary files, `.docx`, images, and
   anything converted between encodings show up as "file not displayed". Say so
   and describe what changed, or I will think something is broken.
@@ -121,7 +129,8 @@ GitHub icon in the Activity Bar → the PR → **Files Changed** → click each 
 Hover a line number → **+** to comment.
 
 **Merge**
-Bottom of the PR tab. Squash and merge, and tick **Delete branch**.
+Claude merges. If you are merging one yourself: bottom of the PR tab, squash
+and merge, and tick **Delete branch**.
 
 **Afterwards — the step that is easy to forget**
 `Ctrl+Shift+P` → **Exit Review Mode**, then:
