@@ -1,6 +1,7 @@
-__pycache__/
 *.pyc
-sandbox/
+__pycache__/
+cache/
 data/cache/
-usgs_api_key.txt
 mapdata_outflow/
+sandbox/
+usgs_api_key.txt

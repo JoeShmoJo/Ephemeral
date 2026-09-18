@@ -31,10 +31,12 @@ import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-REAL_DATA_DIR = os.path.normpath(os.path.join(HERE, "..", "data"))
-DEFAULT_DEST = os.path.normpath(os.path.join(HERE, "..", "sandbox", "data"))
+REAL_DATA_DIR = os.path.normpath(os.path.join(HERE, "..", "..", "data"))
+DEFAULT_DEST = os.path.normpath(os.path.join(HERE, "..", "..", "sandbox", "data"))
 
-PASSTHROUGH = ["WIL_ELEV_DICT.csv", "STOR_RATINGS.xlsx", "ALT_WithdrawalDemand.csv"]
+PASSTHROUGH = ["WIL_ELEV_DICT.csv",
+               os.path.join("wil_div", "STOR_RATINGS.xlsx"),
+               os.path.join("wil_div", "ALT_WithdrawalDemand.csv")]
 RULE_CURVES = "RuleCurves.csv"
 
 FIRST_YEAR, LAST_YEAR = 2015, 2026
@@ -124,7 +126,7 @@ def main(argv=None) -> int:
         if not os.path.exists(source):
             print(f"[ERROR] Missing real input {source}")
             return 1
-        shutil.copy(source, os.path.join(dest, name))
+        shutil.copy(source, os.path.join(dest, os.path.basename(name)))
         print(f"[INFO] Copied real {name}")
 
     bands = operating_bands(os.path.join(REAL_DATA_DIR, RULE_CURVES))

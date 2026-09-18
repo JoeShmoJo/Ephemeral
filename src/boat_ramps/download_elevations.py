@@ -38,9 +38,17 @@ WHICH ENDPOINT
     MAX_CONTINUOUS_YEARS to shrink each page set, or narrow START/END_DATE and
     run it in two passes.
 
+CACHING
+    Every response is written to cache/usgs/ and read back on the next run, so
+    a second run costs nothing against the API. The cache is keyed per request
+    - per pool, per parameter, per endpoint, per time window - which matters
+    most for the continuous route: if a run dies partway through on the rate
+    limit, rerunning resumes from where it stopped instead of refetching the
+    pools that already succeeded. Set REFRESH = True to ignore it.
+
 OUTPUT
-    out/wil_elev_daily.csv    date, project, site_no, elev_ft
-    out/wil_elev_summary.csv  per-pool record span, day count and gaps
+    out/boat_ramps/wil_elev_daily.csv    date, project, site_no, elev_ft
+    out/boat_ramps/wil_elev_summary.csv  per-pool span, day count and gaps
 """
 
 import os
@@ -82,11 +90,15 @@ import certifi
 # usgs_api_key.txt, which git matches at any depth, so data/ is covered.
 # Setting API_USGS_PAT in the environment instead also works and this file
 # then does not need to exist.
-API_KEY_FILE = os.path.join("..", "data", "usgs_api_key.txt")
+API_KEY_FILE = os.path.join("data", "usgs_api_key.txt")
 
-ELEV_DICT_PATH = os.path.join("..", "data", "WIL_ELEV_DICT.csv")
-DAILY_OUT = os.path.join("..", "out", "wil_elev_daily.csv")
-SUMMARY_OUT = os.path.join("..", "out", "wil_elev_summary.csv")
+ELEV_DICT_PATH = os.path.join("data", "WIL_ELEV_DICT.csv")
+DAILY_OUT = os.path.join("out", "boat_ramps", "wil_elev_daily.csv")
+SUMMARY_OUT = os.path.join("out", "boat_ramps", "wil_elev_summary.csv")
+
+# Responses land here and are reused on the next run. Gitignored.
+CACHE_DIR = os.path.join("cache", "usgs")
+REFRESH = False   # True re-downloads everything and rewrites the cache
 
 # Ten complete calendar years. The boat ramp season runs Feb 1 - Dec 15, so
 # calendar years divide the record more naturally here than water years do.
@@ -144,13 +156,64 @@ print("[INFO] Using CA bundle: %s" % bundle_path)
 # --- End SSL Setup -----------------------------------------------------------
 
 
+def repo_root():
+    """
+    Walk up from this file until the repository root is in hand.
+
+    The scripts live in src/<workflow>/, so a fixed number of ".." would break
+    the moment one moves. Recognising the root by its contents does not.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    while True:
+        if all(os.path.isdir(os.path.join(here, d)) for d in ("data", "src")):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            raise SystemExit(
+                "Cannot find the repository root above %s - it should hold "
+                "data/ and src/." % os.path.dirname(os.path.abspath(__file__))
+            )
+        here = parent
+
+
 def resolve_path(path):
-    """Anchor a relative path to this script's folder rather than the cwd."""
+    """Anchor a relative path to the repository root rather than the cwd."""
     if os.path.isabs(path):
         return path
-    return os.path.normpath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), path)
+    return os.path.normpath(os.path.join(repo_root(), path))
+
+
+def cache_file(site, parameter_cd, endpoint, window):
+    safe = window.replace(":", "").replace("/", "_")
+    return resolve_path(
+        os.path.join(CACHE_DIR, "%s_%s_%s_%s.csv"
+                     % (site, parameter_cd, endpoint, safe))
     )
+
+
+def cached_fetch(site, parameter_cd, endpoint, window, call):
+    """
+    `call` executed once and its result kept on disk under that key.
+
+    An empty response is cached too, as an empty file. A pool with no data on
+    62614 is a fact about the service, not a transient failure, and recording
+    it stops every rerun paying to rediscover it.
+    """
+    path = cache_file(site, parameter_cd, endpoint, window)
+
+    if not REFRESH and os.path.isfile(path):
+        if os.path.getsize(path) == 0:
+            return None
+        return pd.read_csv(path)
+
+    data = call()
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if data is None or data.empty:
+        open(path, "w").close()
+        return None
+    data.to_csv(path, index=False)
+    return data
 
 
 def read_api_key():
@@ -262,14 +325,20 @@ def _to_series(frame, site):
 
 def fetch_daily(location, parameter_cd, statistic_id):
     """One call to the daily endpoint. Returns None when it has nothing."""
-    data, _ = waterdata.get_daily(
-        monitoring_location_id=location,
-        parameter_code=parameter_cd,
-        statistic_id=statistic_id,
-        time=_time_range(START_DATE, END_DATE),
-        skip_geometry=True,
-    )
-    return data
+    window = _time_range(START_DATE, END_DATE)
+    endpoint = "daily" if statistic_id else "daily-anystat"
+
+    def call():
+        data, _ = waterdata.get_daily(
+            monitoring_location_id=location,
+            parameter_code=parameter_cd,
+            statistic_id=statistic_id,
+            time=window,
+            skip_geometry=True,
+        )
+        return data
+
+    return cached_fetch(location, parameter_cd, endpoint, window, call)
 
 
 def fetch_continuous(location, parameter_cd):
@@ -290,11 +359,17 @@ def fetch_continuous(location, parameter_cd):
             start + pd.DateOffset(years=MAX_CONTINUOUS_YEARS) - pd.Timedelta(days=1),
             final,
         )
-        data, _ = waterdata.get_continuous(
-            monitoring_location_id=location,
-            parameter_code=parameter_cd,
-            time=_time_range(start, stop),
-        )
+        window = _time_range(start, stop)
+
+        def call(window=window):
+            data, _ = waterdata.get_continuous(
+                monitoring_location_id=location,
+                parameter_code=parameter_cd,
+                time=window,
+            )
+            return data
+
+        data = cached_fetch(location, parameter_cd, "continuous", window, call)
         if data is not None and not data.empty:
             pieces.append(data)
         start = stop + pd.Timedelta(days=1)
